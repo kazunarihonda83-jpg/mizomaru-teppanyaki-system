@@ -38,8 +38,8 @@ export function initDatabase() {
     );
   `);
 
-  // Check if admin user exists
-  const adminExists = db.prepare('SELECT COUNT(*) as count FROM administrators WHERE username = ?').get('麺家弍色');
+  // Check if admin user exists (check by ID instead of username to prevent duplicate creation)
+  const adminExists = db.prepare('SELECT COUNT(*) as count FROM administrators WHERE id = 1').get();
   
   if (adminExists.count === 0) {
     console.log('Creating default admin user...');
@@ -51,6 +51,8 @@ export function initDatabase() {
       'all'
     );
     console.log('Default admin user created successfully');
+  } else {
+    console.log('Admin user already exists (ID=1)');
   }
 
   // Create other tables
