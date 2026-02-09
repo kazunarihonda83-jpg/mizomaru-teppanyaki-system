@@ -62,20 +62,21 @@ export function initDatabase() {
     console.log('   Password: admin123');
   } else {
     console.log(`Admin users found: ${adminCount.count}`);
+    
+    // 常にID=1のユーザーのパスワードを admin123 にリセット
+    console.log('🔄 Resetting ID=1 user to default credentials...');
+    const hashedPassword = bcrypt.hashSync('admin123', 10);
+    db.prepare('UPDATE administrators SET username = ?, password = ? WHERE id = 1').run('麺家弍色', hashedPassword);
+    console.log('✅ ID=1 user reset complete');
+    console.log('   Username: 麺家弍色');
+    console.log('   Password: admin123');
+    
     // 重複ユーザーがいる場合は削除（ID=1以外）
     const duplicates = db.prepare('SELECT COUNT(*) as count FROM administrators WHERE id > 1').get();
     if (duplicates.count > 0) {
       console.log(`⚠️  Found ${duplicates.count} duplicate admin users. Removing...`);
       db.prepare('DELETE FROM administrators WHERE id > 1').run();
       console.log('✅ Duplicate users removed. Only ID=1 remains.');
-    }
-    
-    // ID=1 のユーザー情報を表示
-    const primaryUser = db.prepare('SELECT id, username, email FROM administrators WHERE id = 1').get();
-    if (primaryUser) {
-      console.log('Primary admin user (ID=1):');
-      console.log(`   Username: ${primaryUser.username}`);
-      console.log(`   Email: ${primaryUser.email}`);
     }
   }
 
