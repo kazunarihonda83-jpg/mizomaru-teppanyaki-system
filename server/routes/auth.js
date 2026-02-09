@@ -5,6 +5,32 @@ import { authenticateToken, generateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// TEMPORARY: パスワードリセット（緊急用）
+router.post('/reset-admin', (req, res) => {
+  try {
+    const { secret } = req.body;
+    
+    // セキュリティ用の秘密キー
+    if (secret !== 'emergency-reset-2026') {
+      return res.status(403).json({ error: 'Invalid secret' });
+    }
+    
+    // ID=1のユーザーのパスワードをリセット
+    const hashedPassword = bcrypt.hashSync('admin123', 10);
+    db.prepare('UPDATE administrators SET username = ?, password = ? WHERE id = 1').run('麺家弍色', hashedPassword);
+    
+    const user = db.prepare('SELECT id, username, email FROM administrators WHERE id = 1').get();
+    
+    res.json({ 
+      message: 'Password reset successful',
+      user: user
+    });
+  } catch (error) {
+    console.error('Reset error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/login', (req, res) => {
   try {
     const { username, password } = req.body;
