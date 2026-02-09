@@ -15,6 +15,17 @@ export function initDatabase() {
   
   console.log('Initializing database at:', dbPath);
   
+  // RESET_DB=true の場合、データベースを削除して再作成
+  if (process.env.RESET_DB === 'true') {
+    console.log('⚠️  RESET_DB=true detected. Deleting existing database...');
+    if (existsSync(dbPath)) {
+      unlinkSync(dbPath);
+      console.log('✅ Database deleted');
+    }
+    if (existsSync(`${dbPath}-shm`)) unlinkSync(`${dbPath}-shm`);
+    if (existsSync(`${dbPath}-wal`)) unlinkSync(`${dbPath}-wal`);
+  }
+  
   const db = new Database(dbPath);
   db.pragma('foreign_keys = ON');
   db.pragma('journal_mode = WAL');
@@ -34,7 +45,7 @@ export function initDatabase() {
     );
   `);
 
-  // Check if ANY admin user exists (check total count instead of specific username)
+  // Check if ANY admin user exists
   const adminCount = db.prepare('SELECT COUNT(*) as count FROM administrators').get();
   
   if (adminCount.count === 0) {
@@ -46,15 +57,25 @@ export function initDatabase() {
       '0hp2c84c787541j@ezweb.ne.jp',
       'all'
     );
-    console.log('Default admin user created successfully');
+    console.log('✅ Default admin user created successfully');
+    console.log('   Username: 麺家弍色');
+    console.log('   Password: admin123');
   } else {
-    console.log(`Admin users already exist (Total: ${adminCount.count})`);
+    console.log(`Admin users found: ${adminCount.count}`);
     // 重複ユーザーがいる場合は削除（ID=1以外）
     const duplicates = db.prepare('SELECT COUNT(*) as count FROM administrators WHERE id > 1').get();
     if (duplicates.count > 0) {
-      console.log(`Found ${duplicates.count} duplicate admin users. Removing...`);
+      console.log(`⚠️  Found ${duplicates.count} duplicate admin users. Removing...`);
       db.prepare('DELETE FROM administrators WHERE id > 1').run();
-      console.log('Duplicate users removed. Only ID=1 remains.');
+      console.log('✅ Duplicate users removed. Only ID=1 remains.');
+    }
+    
+    // ID=1 のユーザー情報を表示
+    const primaryUser = db.prepare('SELECT id, username, email FROM administrators WHERE id = 1').get();
+    if (primaryUser) {
+      console.log('Primary admin user (ID=1):');
+      console.log(`   Username: ${primaryUser.username}`);
+      console.log(`   Email: ${primaryUser.email}`);
     }
   }
 
