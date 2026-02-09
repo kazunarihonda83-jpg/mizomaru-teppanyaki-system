@@ -15,10 +15,6 @@ export function initDatabase() {
   
   console.log('Initializing database at:', dbPath);
   
-  // Vercel環境でデータベースファイルが存在するかチェック
-  const dbExists = existsSync(dbPath);
-  const isVercel = !!process.env.VERCEL;
-  
   const db = new Database(dbPath);
   db.pragma('foreign_keys = ON');
   db.pragma('journal_mode = WAL');
@@ -38,10 +34,10 @@ export function initDatabase() {
     );
   `);
 
-  // Check if admin user exists (check by ID instead of username to prevent duplicate creation)
-  const adminExists = db.prepare('SELECT COUNT(*) as count FROM administrators WHERE id = 1').get();
+  // Check if ANY admin user exists (check total count instead of specific username)
+  const adminCount = db.prepare('SELECT COUNT(*) as count FROM administrators').get();
   
-  if (adminExists.count === 0) {
+  if (adminCount.count === 0) {
     console.log('Creating default admin user...');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
     db.prepare('INSERT INTO administrators (username, password, email, permissions) VALUES (?, ?, ?, ?)').run(
@@ -52,7 +48,14 @@ export function initDatabase() {
     );
     console.log('Default admin user created successfully');
   } else {
-    console.log('Admin user already exists (ID=1)');
+    console.log(`Admin users already exist (Total: ${adminCount.count})`);
+    // 重複ユーザーがいる場合は削除（ID=1以外）
+    const duplicates = db.prepare('SELECT COUNT(*) as count FROM administrators WHERE id > 1').get();
+    if (duplicates.count > 0) {
+      console.log(`Found ${duplicates.count} duplicate admin users. Removing...`);
+      db.prepare('DELETE FROM administrators WHERE id > 1').run();
+      console.log('Duplicate users removed. Only ID=1 remains.');
+    }
   }
 
   // Create other tables
