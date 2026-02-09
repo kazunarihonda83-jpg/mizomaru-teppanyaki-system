@@ -36,7 +36,18 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>;
+  const refreshUser = async () => {
+    try {
+      const response = await api.get('/auth/me');
+      setUser(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('ユーザー情報取得エラー:', error);
+      throw error;
+    }
+  };
+
+  return <AuthContext.Provider value={{ user, login, logout, loading, refreshUser }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

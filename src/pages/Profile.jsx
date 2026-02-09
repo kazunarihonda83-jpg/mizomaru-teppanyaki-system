@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -36,6 +36,7 @@ export default function Profile() {
 
     try {
       await api.put('/auth/profile', formData);
+      await refreshUser(); // ユーザー情報を再取得
       setSuccess('プロフィールを更新しました');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {

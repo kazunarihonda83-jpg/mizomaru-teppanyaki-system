@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../utils/api';
 
 export default function SettingsEmail() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [formData, setFormData] = useState({
     current_email: user?.email || '',
     new_email: '',
@@ -46,10 +46,11 @@ export default function SettingsEmail() {
     try {
       setLoading(true);
       await api.put('/auth/email', {
-        new_email: formData.new_email,
+        email: formData.new_email,
         password: formData.password
       });
       
+      await refreshUser(); // ユーザー情報を再取得
       setSuccess('メールアドレスを更新しました');
       setFormData({
         current_email: formData.new_email,
