@@ -57,6 +57,19 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Debug endpoint - check admin users (TEMPORARY)
+app.get('/api/debug/users', (req, res) => {
+  try {
+    const users = db.prepare('SELECT id, username, email, is_active FROM administrators').all();
+    res.json({ 
+      count: users.length,
+      users: users 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve static files in production (only if SERVE_FRONTEND is enabled)
 // This is disabled on Render backend deployment
 if (process.env.NODE_ENV === 'production' && process.env.SERVE_FRONTEND === 'true') {
