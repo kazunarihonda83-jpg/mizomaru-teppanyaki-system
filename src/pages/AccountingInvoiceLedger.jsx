@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FileText, Download, Search, Calendar } from 'lucide-react';
+import { FileText, Download, Search, Calendar, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
 export default function AccountingInvoiceLedger() {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,23 +76,42 @@ export default function AccountingInvoiceLedger() {
           <FileText size={24} />
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>請求判明書</h1>
         </div>
-        <button
-          onClick={exportToPDF}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '10px 20px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          <Download size={20} />
-          PDFエクスポート
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => navigate('/documents')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '10px 20px',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={20} />
+            請求書作成
+          </button>
+          <button
+            onClick={exportToPDF}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '10px 20px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            <Download size={20} />
+            PDFエクスポート
+          </button>
+        </div>
       </div>
 
       <div style={{
