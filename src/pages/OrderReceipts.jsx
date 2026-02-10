@@ -33,8 +33,8 @@ export default function OrderReceipts() {
         api.get('/order-receipts'),
         api.get('/customers')
       ]);
-      setReceipts(receiptsRes.data.data || []);
-      setCustomers(customersRes.data.data || []);
+      setReceipts(receiptsRes.data.data || receiptsRes.data || []);
+      setCustomers(customersRes.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('データの読み込みに失敗しました');
