@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import bcrypt from 'bcryptjs';
-import { existsSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 
 export function initDatabase() {
   // Vercel環境では/tmpディレクトリを使用（ただし永続性なし）
