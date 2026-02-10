@@ -10,6 +10,16 @@ export default function AccountingCashBook() {
   const [endDate, setEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    transaction_date: new Date().toISOString().split('T')[0],
+    transaction_type: 'income',
+    category: '',
+    description: '',
+    amount: '',
+    reference_type: '',
+    reference_id: ''
+  });
 
   useEffect(() => {
     // Set default date range (current month)
@@ -55,6 +65,38 @@ export default function AccountingCashBook() {
     alert('PDF出力機能は準備中です');
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      await api.post('/accounting-ledgers/cash-book', {
+        ...formData,
+        amount: parseFloat(formData.amount)
+      });
+      alert('現金出納データを登録しました');
+      setShowModal(false);
+      resetForm();
+      loadCashBook();
+    } catch (err) {
+      console.error('Error creating cash book entry:', err);
+      alert(err.response?.data?.error || '現金出納データの登録に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      transaction_date: new Date().toISOString().split('T')[0],
+      transaction_type: 'income',
+      category: '',
+      description: '',
+      amount: '',
+      reference_type: '',
+      reference_id: ''
+    });
+  };
+
   if (loading) return <div style={{ padding: '20px' }}>読み込み中...</div>;
 
   return (
@@ -64,23 +106,42 @@ export default function AccountingCashBook() {
           <BookOpen size={24} />
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>現金出納帳</h1>
         </div>
-        <button
-          onClick={exportToPDF}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '10px 20px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          <Download size={20} />
-          PDFエクスポート
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '10px 20px',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={20} />
+            新規登録
+          </button>
+          <button
+            onClick={exportToPDF}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '10px 20px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            <Download size={20} />
+            PDFエクスポート
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -299,6 +360,168 @@ export default function AccountingCashBook() {
           </tbody>
         </table>
       </div>
+
+      {/* New Entry Modal */}
+      {showModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '30px',
+            width: '90%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginBottom: '20px' }}>現金出納登録</h2>
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+                  取引日 <span style={{ color: 'red' }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.transaction_date}
+                  onChange={(e) => setFormData({...formData, transaction_date: e.target.value})}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+                  区分 <span style={{ color: 'red' }}>*</span>
+                </label>
+                <select
+                  value={formData.transaction_type}
+                  onChange={(e) => setFormData({...formData, transaction_type: e.target.value})}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <option value="income">入金</option>
+                  <option value="expense">出金</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+                  カテゴリ
+                </label>
+                <input
+                  type="text"
+                  value={formData.category}
+                  onChange={(e) => setFormData({...formData, category: e.target.value})}
+                  placeholder="例: 売上、仕入、経費"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+                  摘要 <span style={{ color: 'red' }}>*</span>
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  required
+                  placeholder="取引内容を入力"
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+                  金額 <span style={{ color: 'red' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                  required
+                  min="0"
+                  step="1"
+                  placeholder="0"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    opacity: loading ? 0.5 : 1
+                  }}
+                >
+                  {loading ? '登録中...' : '登録'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
