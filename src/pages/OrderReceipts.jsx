@@ -33,8 +33,14 @@ export default function OrderReceipts() {
         api.get('/order-receipts'),
         api.get('/customers')
       ]);
+      console.log('=== OrderReceipts Debug ===');
+      console.log('customersRes:', customersRes);
+      console.log('customersRes.data:', customersRes.data);
+      console.log('Array.isArray(customersRes.data):', Array.isArray(customersRes.data));
+      console.log('customers length:', customersRes.data?.length);
       setReceipts(receiptsRes.data.data || receiptsRes.data || []);
       setCustomers(customersRes.data || []);
+      console.log('customers state after set:', customersRes.data || []);
     } catch (err) {
       console.error('Error loading data:', err);
       setError('データの読み込みに失敗しました');
@@ -284,13 +290,17 @@ export default function OrderReceipts() {
       </div>
 
       {showModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
+        <>
+          {console.log('=== Modal Render Debug ===')}
+          {console.log('customers in modal:', customers)}
+          {console.log('customers.length:', customers.length)}
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -521,6 +531,7 @@ export default function OrderReceipts() {
             </form>
           </div>
         </div>
+        </>
       )}
     </div>
   );
