@@ -9,6 +9,16 @@ export default function AccountingTaxDeduction() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    transaction_date: '',
+    supplier_name: '',
+    invoice_number: '',
+    tax_rate: 10,
+    taxable_amount: 0,
+    category: '',
+    notes: ''
+  });
 
   useEffect(() => {
     // Set default date range (current month)
@@ -47,6 +57,32 @@ export default function AccountingTaxDeduction() {
     alert('PDF出力機能は準備中です');
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/accounting-ledgers/tax-deductions', formData);
+      alert('税額控除データを登録しました');
+      setShowModal(false);
+      resetForm();
+      loadDeductions();
+    } catch (err) {
+      console.error('Error creating tax deduction:', err);
+      alert('登録に失敗しました');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      transaction_date: '',
+      supplier_name: '',
+      invoice_number: '',
+      tax_rate: 10,
+      taxable_amount: 0,
+      category: '',
+      notes: ''
+    });
+  };
+
   if (loading) return <div style={{ padding: '20px' }}>読み込み中...</div>;
 
   return (
@@ -56,23 +92,42 @@ export default function AccountingTaxDeduction() {
           <Calculator size={24} />
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>税額控除帳</h1>
         </div>
-        <button
-          onClick={exportToPDF}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '10px 20px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          <Download size={20} />
-          PDFエクスポート
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setShowModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '10px 20px',
+              backgroundColor: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            <Plus size={20} />
+            新規登録
+          </button>
+          <button
+            onClick={exportToPDF}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              padding: '10px 20px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            <Download size={20} />
+            PDFエクスポート
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -236,6 +291,135 @@ export default function AccountingTaxDeduction() {
           </tbody>
         </table>
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '30px',
+            width: '90%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginBottom: '20px', fontSize: '20px', fontWeight: 'bold' }}>税額控除 新規登録</h2>
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>取引日 *</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.transaction_date}
+                  onChange={(e) => setFormData({ ...formData, transaction_date: e.target.value })}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>仕入先名 *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.supplier_name}
+                  onChange={(e) => setFormData({ ...formData, supplier_name: e.target.value })}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>請求書番号</label>
+                <input
+                  type="text"
+                  value={formData.invoice_number}
+                  onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>税率 (%) *</label>
+                  <input
+                    type="number"
+                    required
+                    step="0.1"
+                    value={formData.tax_rate}
+                    onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) })}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>課税対象額 *</label>
+                  <input
+                    type="number"
+                    required
+                    value={formData.taxable_amount}
+                    onChange={(e) => setFormData({ ...formData, taxable_amount: parseFloat(e.target.value) })}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                </div>
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>カテゴリ</label>
+                <input
+                  type="text"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                />
+              </div>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>備考</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows="3"
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', resize: 'vertical' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowModal(false); resetForm(); }}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  登録
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
