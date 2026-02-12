@@ -51,7 +51,7 @@ export default function OrderReceipts() {
       
     } catch (err) {
       console.error('❌ データ読み込みエラー:', err);
-      setError('データの読み込みに失敗しました');
+      // エラーメッセージを表示しない
     } finally {
       setLoading(false);
     }
@@ -223,18 +223,6 @@ export default function OrderReceipts() {
 
   return (
     <div style={{ padding: '20px' }}>
-      {error && (
-        <div style={{
-          backgroundColor: '#fee2e2',
-          color: '#991b1b',
-          padding: '12px',
-          borderRadius: '8px',
-          marginBottom: '20px'
-        }}>
-          {error}
-        </div>
-      )}
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <FileText size={24} />
