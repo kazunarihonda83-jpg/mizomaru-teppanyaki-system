@@ -56,7 +56,7 @@ RESPONSE2=$(curl -s -X POST "$API_URL/order-receipts" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
-    "customer_id": 2,
+    "customer_id": 1,
     "order_date": "2026-02-12",
     "delivery_date": "2026-02-16",
     "status": "pending",

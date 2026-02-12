@@ -210,7 +210,10 @@ router.post('/', (req, res) => {
 
     res.status(201).json({ 
       message: 'Order receipt created successfully',
-      data: { id: result.lastInsertRowid }
+      data: { 
+        id: result.lastInsertRowid,
+        receipt_number: receipt_number
+      }
     });
   } catch (error) {
     console.error('Error creating order receipt:', error);
