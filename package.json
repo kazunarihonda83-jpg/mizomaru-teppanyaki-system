@@ -8,6 +8,7 @@
     "preview": "vite preview",
     "start": "node server/index.js",
     "server": "node server/index.js",
+    "migrate": "node server/migrate-subcategory.js",
     "vercel-build": "vite build"
   },
   "dependencies": {
