@@ -43,6 +43,21 @@ export default function OrderReceipts() {
     }
   };
 
+  const loadCustomers = async () => {
+    try {
+      const response = await api.get('/customers');
+      setCustomers(response.data || []);
+    } catch (err) {
+      console.error('Error loading customers:', err);
+    }
+  };
+
+  const openNewModal = async () => {
+    await loadCustomers();
+    resetForm();
+    setShowModal(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -86,7 +101,8 @@ export default function OrderReceipts() {
     setEditingReceipt(null);
   };
 
-  const handleEdit = (receipt) => {
+  const handleEdit = async (receipt) => {
+    await loadCustomers();
     setEditingReceipt(receipt);
     setFormData({
       receipt_number: receipt.receipt_number,
@@ -157,10 +173,7 @@ export default function OrderReceipts() {
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>受注取引一覧</h1>
         </div>
         <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
+          onClick={openNewModal}
           style={{
             display: 'flex',
             alignItems: 'center',
