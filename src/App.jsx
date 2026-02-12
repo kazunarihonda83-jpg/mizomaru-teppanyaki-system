@@ -11,6 +11,7 @@ import OrderReceipts from './pages/OrderReceipts';
 import OrderReceiptsUpload from './pages/OrderReceiptsUpload';
 import GeneralLedger from './pages/GeneralLedger';
 import BalanceSheet from './pages/BalanceSheet';
+import BalanceSheetDebug from './pages/BalanceSheetDebug';
 import ProfitLoss from './pages/ProfitLoss';
 import AccountingCashflow from './pages/AccountingCashflow';
 import Profile from './pages/Profile';
@@ -46,6 +47,7 @@ function AppRoutes() {
       <Route path="/accounting" element={<Navigate to="/accounting/general-ledger" replace />} />
       <Route path="/accounting/general-ledger" element={<PrivateRoute><Layout><GeneralLedger /></Layout></PrivateRoute>} />
       <Route path="/accounting/balance-sheet" element={<PrivateRoute><Layout><BalanceSheet /></Layout></PrivateRoute>} />
+      <Route path="/accounting/balance-sheet-debug" element={<PrivateRoute><Layout><BalanceSheetDebug /></Layout></PrivateRoute>} />
       <Route path="/accounting/profit-loss" element={<PrivateRoute><Layout><ProfitLoss /></Layout></PrivateRoute>} />
       <Route path="/accounting/cashflow" element={<PrivateRoute><Layout><AccountingCashflow /></Layout></PrivateRoute>} />
       
