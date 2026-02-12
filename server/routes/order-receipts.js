@@ -167,10 +167,32 @@ router.post('/', (req, res) => {
     const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(customer_id);
 
     // Create journal entry based on payment status
+    // まず売掛金計上の仕訳を作成（全ての受注取引で共通）
+    // 借方: 売掛金 / 貸方: 売上高
+    if (receivableAccount && revenueAccount && customer) {
+      db.prepare(`
+        INSERT INTO journal_entries (
+          entry_date, description, debit_account_id, credit_account_id, 
+          amount, reference_type, reference_id, admin_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        order_date,
+        `${customer.name} 売掛金計上 (${receipt_number})`,
+        receivableAccount.id,
+        revenueAccount.id,
+        total_amount,
+        'order_receipt',
+        result.lastInsertRowid,
+        req.user?.id || 1
+      );
+
+      console.log(`✅ 仕訳帳登録: 売掛金計上 ${receipt_number} ¥${total_amount}`);
+    }
+    
+    // 支払済みの場合は、さらに売掛金回収の仕訳を追加
     if (payment_status === 'paid' && payment_date) {
-      // 支払済み: 現金売上として計上
-      // 借方: 現金 / 貸方: 売上高
-      if (cashAccount && revenueAccount && customer) {
+      // 借方: 現金 / 貸方: 売掛金
+      if (cashAccount && receivableAccount && customer) {
         db.prepare(`
           INSERT INTO journal_entries (
             entry_date, description, debit_account_id, credit_account_id, 
@@ -178,16 +200,16 @@ router.post('/', (req, res) => {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           payment_date,
-          `${customer.name} 現金売上 (${receipt_number})`,
+          `${customer.name} 売掛金回収 (${receipt_number})`,
           cashAccount.id,
-          revenueAccount.id,
+          receivableAccount.id,
           total_amount,
           'order_receipt',
           result.lastInsertRowid,
           req.user?.id || 1
         );
 
-        console.log(`✅ 仕訳帳登録: 現金売上 ${receipt_number} ¥${total_amount}`);
+        console.log(`✅ 仕訳帳登録: 売掛金回収 ${receipt_number} ¥${total_amount}`);
       }
 
       // Add to cash book
@@ -214,28 +236,6 @@ router.post('/', (req, res) => {
       );
 
       console.log(`✅ 現金出納帳登録: ${receipt_number} ¥${total_amount}`);
-    } else if (payment_status === 'unpaid' || payment_status === 'partial') {
-      // 未払い・一部払い: 売掛金として計上
-      // 借方: 売掛金 / 貸方: 売上高
-      if (receivableAccount && revenueAccount && customer) {
-        db.prepare(`
-          INSERT INTO journal_entries (
-            entry_date, description, debit_account_id, credit_account_id, 
-            amount, reference_type, reference_id, admin_id
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-          order_date,
-          `${customer.name} 売掛金計上 (${receipt_number})`,
-          receivableAccount.id,
-          revenueAccount.id,
-          total_amount,
-          'order_receipt',
-          result.lastInsertRowid,
-          req.user?.id || 1
-        );
-
-        console.log(`✅ 仕訳帳登録: 売掛金計上 ${receipt_number} ¥${total_amount}`);
-      }
     }
 
     res.status(201).json({ 
