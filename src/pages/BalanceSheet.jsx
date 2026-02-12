@@ -109,18 +109,8 @@ export default function BalanceSheet() {
         </h1>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '20px' }}>
-        {/* 左側サマリーカード */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', border: '1px solid #f0f0f0' }}>
-            <div style={{ fontSize: '12px', color: '#999', marginBottom: '8px' }}>資産・負債 1件追加</div>
-            <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.6' }}>
-              資産・負債証 1件追加
-            </div>
-          </div>
-        </div>
-
-        {/* 右側メインコンテンツ */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* メインコンテンツ */}
         <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           {/* ヘッダー部分 */}
           <div style={{ background: '#fafafa', padding: '20px', borderBottom: '1px solid #f0f0f0' }}>
