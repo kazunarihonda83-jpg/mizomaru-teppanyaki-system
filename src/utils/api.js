@@ -1,7 +1,14 @@
 import axios from 'axios';
 
+// デバッグ用ログ
+console.log('[API Config] VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('[API Config] MODE:', import.meta.env.MODE);
+
+const baseURL = import.meta.env.VITE_API_URL || 'https://menya-nishiki-system-cloud.onrender.com/api';
+console.log('[API Config] Using baseURL:', baseURL);
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://menya-nishiki-system-cloud.onrender.com/api',
+  baseURL: baseURL,
   headers: { 'Content-Type': 'application/json' }
 });
 
