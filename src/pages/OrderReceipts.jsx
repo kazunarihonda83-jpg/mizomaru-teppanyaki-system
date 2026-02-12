@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Trash2, Edit, Eye, DollarSign, Calendar } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Edit, Calendar } from 'lucide-react';
 import api from '../utils/api';
 
 export default function OrderReceipts() {
@@ -29,49 +29,58 @@ export default function OrderReceipts() {
   const loadData = async () => {
     try {
       setLoading(true);
+      setError('');
+      
+      // 受注取引と顧客データを並行取得
       const [receiptsRes, customersRes] = await Promise.all([
         api.get('/order-receipts'),
         api.get('/customers')
       ]);
-      setReceipts(receiptsRes.data.data || receiptsRes.data || []);
-      setCustomers(customersRes.data || []);
+      
+      // 受注取引データを設定
+      const receiptsData = receiptsRes.data.data || receiptsRes.data || [];
+      setReceipts(receiptsData);
+      
+      // 顧客データを設定（配列を直接取得）
+      const customersData = Array.isArray(customersRes.data) ? customersRes.data : [];
+      setCustomers(customersData);
+      
+      console.log('✅ データ読み込み完了');
+      console.log('受注件数:', receiptsData.length);
+      console.log('顧客件数:', customersData.length);
+      console.log('顧客データ:', customersData);
+      
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error('❌ データ読み込みエラー:', err);
       setError('データの読み込みに失敗しました');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadCustomers = async () => {
-    try {
-      const response = await api.get('/customers');
-      setCustomers(response.data || []);
-    } catch (err) {
-      console.error('Error loading customers:', err);
-    }
-  };
-
-  const openNewModal = async () => {
-    await loadCustomers();
-    resetForm();
-    setShowModal(true);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // バリデーション
+    if (!formData.customer_id) {
+      alert('顧客を選択してください');
+      return;
+    }
+    
     try {
       if (editingReceipt) {
         await api.put(`/order-receipts/${editingReceipt.id}`, formData);
+        alert('受注取引を更新しました');
       } else {
         await api.post('/order-receipts', formData);
+        alert('受注取引を登録しました');
       }
       setShowModal(false);
       resetForm();
       loadData();
     } catch (err) {
-      console.error('Error saving receipt:', err);
-      setError(err.response?.data?.error || '保存に失敗しました');
+      console.error('保存エラー:', err);
+      alert(err.response?.data?.error || '保存に失敗しました');
     }
   };
 
@@ -79,10 +88,11 @@ export default function OrderReceipts() {
     if (!confirm('本当に削除しますか？')) return;
     try {
       await api.delete(`/order-receipts/${id}`);
+      alert('削除しました');
       loadData();
     } catch (err) {
-      console.error('Error deleting receipt:', err);
-      setError('削除に失敗しました');
+      console.error('削除エラー:', err);
+      alert('削除に失敗しました');
     }
   };
 
@@ -102,7 +112,15 @@ export default function OrderReceipts() {
   };
 
   const handleEdit = async (receipt) => {
-    await loadCustomers();
+    // 最新の顧客データを取得
+    try {
+      const customersRes = await api.get('/customers');
+      const customersData = Array.isArray(customersRes.data) ? customersRes.data : [];
+      setCustomers(customersData);
+    } catch (err) {
+      console.error('顧客データ取得エラー:', err);
+    }
+    
     setEditingReceipt(receipt);
     setFormData({
       receipt_number: receipt.receipt_number,
@@ -118,6 +136,24 @@ export default function OrderReceipts() {
     setShowModal(true);
   };
 
+  const openNewModal = async () => {
+    // 最新の顧客データを取得
+    try {
+      const customersRes = await api.get('/customers');
+      const customersData = Array.isArray(customersRes.data) ? customersRes.data : [];
+      setCustomers(customersData);
+      
+      console.log('🔄 モーダル用顧客データ取得');
+      console.log('顧客件数:', customersData.length);
+      console.log('顧客一覧:', customersData.map(c => `${c.id}: ${c.name}`));
+    } catch (err) {
+      console.error('顧客データ取得エラー:', err);
+    }
+    
+    resetForm();
+    setShowModal(true);
+  };
+
   const addItem = () => {
     setFormData({
       ...formData,
@@ -127,46 +163,80 @@ export default function OrderReceipts() {
 
   const removeItem = (index) => {
     const newItems = formData.items.filter((_, i) => i !== index);
-    setFormData({ ...formData, items: newItems });
+    setFormData({ ...formData, items: newItems.length > 0 ? newItems : [{ item_name: '', description: '', quantity: 1, unit_price: 0 }] });
   };
 
   const updateItem = (index, field, value) => {
     const newItems = [...formData.items];
-    newItems[index][field] = value;
+    newItems[index] = { ...newItems[index], [field]: value };
     setFormData({ ...formData, items: newItems });
   };
 
-  const filteredReceipts = receipts.filter(receipt =>
-    receipt.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    receipt.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredReceipts = receipts.filter(r =>
+    r.receipt_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusBadge = (status) => {
-    const statusConfig = {
-      pending: { label: '受注済み', color: 'bg-blue-100 text-blue-800' },
-      processing: { label: '処理中', color: 'bg-yellow-100 text-yellow-800' },
-      shipped: { label: '出荷済み', color: 'bg-purple-100 text-purple-800' },
-      delivered: { label: '納品完了', color: 'bg-green-100 text-green-800' },
-      cancelled: { label: 'キャンセル', color: 'bg-red-100 text-red-800' }
+    const config = {
+      pending: { label: '受注済み', color: '#3b82f6' },
+      processing: { label: '処理中', color: '#f59e0b' },
+      shipped: { label: '出荷済み', color: '#8b5cf6' },
+      delivered: { label: '納品完了', color: '#10b981' },
+      cancelled: { label: 'キャンセル', color: '#ef4444' }
     };
-    const config = statusConfig[status] || statusConfig.pending;
-    return <span className={`px-2 py-1 rounded text-xs ${config.color}`}>{config.label}</span>;
+    const { label, color } = config[status] || config.pending;
+    return (
+      <span style={{
+        backgroundColor: color + '20',
+        color: color,
+        padding: '4px 12px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: '500'
+      }}>
+        {label}
+      </span>
+    );
   };
 
   const getPaymentBadge = (status) => {
-    const statusConfig = {
-      unpaid: { label: '未払い', color: 'bg-red-100 text-red-800' },
-      partial: { label: '一部払い', color: 'bg-yellow-100 text-yellow-800' },
-      paid: { label: '支払済み', color: 'bg-green-100 text-green-800' }
+    const config = {
+      unpaid: { label: '未払い', color: '#ef4444' },
+      partial: { label: '部分入金', color: '#f59e0b' },
+      paid: { label: '支払済み', color: '#10b981' }
     };
-    const config = statusConfig[status] || statusConfig.unpaid;
-    return <span className={`px-2 py-1 rounded text-xs ${config.color}`}>{config.label}</span>;
+    const { label, color } = config[status] || config.unpaid;
+    return (
+      <span style={{
+        backgroundColor: color + '20',
+        color: color,
+        padding: '4px 12px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: '500'
+      }}>
+        {label}
+      </span>
+    );
   };
 
   if (loading) return <div style={{ padding: '20px' }}>読み込み中...</div>;
 
   return (
     <div style={{ padding: '20px' }}>
+      {error && (
+        <div style={{
+          backgroundColor: '#fee2e2',
+          color: '#991b1b',
+          padding: '12px',
+          borderRadius: '8px',
+          marginBottom: '20px'
+        }}>
+          {error}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <FileText size={24} />
@@ -183,28 +253,23 @@ export default function OrderReceipts() {
             color: 'white',
             border: 'none',
             borderRadius: '5px',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500'
           }}
         >
           <Plus size={20} />
-          新規受注
+          新規登録
         </button>
       </div>
 
-      {error && (
-        <div style={{
-          padding: '10px',
-          backgroundColor: '#fee',
-          border: '1px solid #fcc',
-          borderRadius: '5px',
-          marginBottom: '20px',
-          color: '#c33'
-        }}>
-          {error}
-        </div>
-      )}
-
-      <div style={{ marginBottom: '20px' }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        padding: '20px',
+        marginBottom: '20px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
         <div style={{ position: 'relative' }}>
           <Search size={20} style={{ position: 'absolute', left: '10px', top: '10px', color: '#999' }} />
           <input
@@ -230,7 +295,6 @@ export default function OrderReceipts() {
               <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>顧客名</th>
               <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>受注日</th>
               <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>納品予定日</th>
-              <th style={{ padding: '12px', textAlign: 'right', fontWeight: '600' }}>金額</th>
               <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>ステータス</th>
               <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>支払状況</th>
               <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>操作</th>
@@ -239,53 +303,48 @@ export default function OrderReceipts() {
           <tbody>
             {filteredReceipts.length === 0 ? (
               <tr>
-                <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-                  受注データがありません
+                <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+                  受注取引データがありません
                 </td>
               </tr>
             ) : (
               filteredReceipts.map((receipt) => (
                 <tr key={receipt.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                   <td style={{ padding: '12px' }}>{receipt.receipt_number}</td>
-                  <td style={{ padding: '12px' }}>{receipt.customer_name}</td>
+                  <td style={{ padding: '12px' }}>{receipt.customer_name || '-'}</td>
                   <td style={{ padding: '12px' }}>{receipt.order_date}</td>
                   <td style={{ padding: '12px' }}>{receipt.delivery_date || '-'}</td>
-                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                    ¥{receipt.total_amount?.toLocaleString()}
-                  </td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>{getStatusBadge(receipt.status)}</td>
+                  <td style={{ padding: '12px', textAlign: 'center' }}>{getPaymentBadge(receipt.payment_status)}</td>
                   <td style={{ padding: '12px', textAlign: 'center' }}>
-                    {getStatusBadge(receipt.status)}
-                  </td>
-                  <td style={{ padding: '12px', textAlign: 'center' }}>
-                    {getPaymentBadge(receipt.payment_status)}
-                  </td>
-                  <td style={{ padding: '12px' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', gap: '5px', justifyContent: 'center' }}>
                       <button
                         onClick={() => handleEdit(receipt)}
                         style={{
-                          padding: '5px 10px',
+                          padding: '6px 12px',
                           backgroundColor: '#3b82f6',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          fontSize: '12px'
                         }}
                       >
-                        <Edit size={16} />
+                        <Edit size={14} />
                       </button>
                       <button
                         onClick={() => handleDelete(receipt.id)}
                         style={{
-                          padding: '5px 10px',
+                          padding: '6px 12px',
                           backgroundColor: '#ef4444',
                           color: 'white',
                           border: 'none',
                           borderRadius: '4px',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          fontSize: '12px'
                         }}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </td>
@@ -305,8 +364,8 @@ export default function OrderReceipts() {
           bottom: 0,
           backgroundColor: 'rgba(0,0,0,0.5)',
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'center',
+          alignItems: 'center',
           zIndex: 1000
         }}>
           <div style={{
@@ -321,6 +380,21 @@ export default function OrderReceipts() {
             <h2 style={{ marginBottom: '20px' }}>
               {editingReceipt ? '受注取引編集' : '新規受注取引'}
             </h2>
+            
+            {/* デバッグ情報 */}
+            <div style={{
+              backgroundColor: '#f0f9ff',
+              padding: '10px',
+              borderRadius: '4px',
+              marginBottom: '15px',
+              fontSize: '12px'
+            }}>
+              <strong>デバッグ情報:</strong> 顧客データ {customers.length}件
+              {customers.length > 0 && (
+                <div>顧客: {customers.map(c => c.name).join(', ')}</div>
+              )}
+            </div>
+
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
                 <div>
@@ -334,16 +408,23 @@ export default function OrderReceipts() {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>顧客 *</label>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
+                    顧客 * <span style={{ color: '#999', fontSize: '12px' }}>({customers.length}件)</span>
+                  </label>
                   <select
                     value={formData.customer_id}
-                    onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                    onChange={(e) => {
+                      console.log('顧客選択:', e.target.value);
+                      setFormData({ ...formData, customer_id: e.target.value });
+                    }}
                     required
                     style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                   >
                     <option value="">選択してください</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                    {customers.map(customer => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.name} (ID: {customer.id})
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -367,10 +448,11 @@ export default function OrderReceipts() {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>ステータス</label>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>ステータス *</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    required
                     style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                   >
                     <option value="pending">受注済み</option>
@@ -381,54 +463,44 @@ export default function OrderReceipts() {
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>支払状況</label>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>支払状況 *</label>
                   <select
                     value={formData.payment_status}
                     onChange={(e) => setFormData({ ...formData, payment_status: e.target.value })}
+                    required
                     style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                   >
                     <option value="unpaid">未払い</option>
-                    <option value="partial">一部払い</option>
+                    <option value="partial">部分入金</option>
                     <option value="paid">支払済み</option>
                   </select>
                 </div>
               </div>
 
-              {formData.payment_status === 'paid' && (
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>支払日</label>
-                  <input
-                    type="date"
-                    value={formData.payment_date}
-                    onChange={(e) => setFormData({ ...formData, payment_date: e.target.value })}
-                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  />
-                </div>
-              )}
-
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>備考</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows="3"
+                  rows={3}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                 />
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
+              <div style={{ marginBottom: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                   <label style={{ fontWeight: '500' }}>商品明細 *</label>
                   <button
                     type="button"
                     onClick={addItem}
                     style={{
-                      padding: '5px 15px',
+                      padding: '6px 12px',
                       backgroundColor: '#10b981',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      fontSize: '12px'
                     }}
                   >
                     明細を追加
@@ -439,10 +511,7 @@ export default function OrderReceipts() {
                     display: 'grid',
                     gridTemplateColumns: '2fr 2fr 1fr 1fr auto',
                     gap: '10px',
-                    marginBottom: '10px',
-                    padding: '10px',
-                    backgroundColor: '#f9fafb',
-                    borderRadius: '4px'
+                    marginBottom: '10px'
                   }}>
                     <input
                       type="text"
@@ -463,10 +532,9 @@ export default function OrderReceipts() {
                       type="number"
                       placeholder="数量"
                       value={item.quantity}
-                      onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
                       required
-                      min="0"
-                      step="0.01"
+                      min="1"
                       style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                     />
                     <input
@@ -476,21 +544,18 @@ export default function OrderReceipts() {
                       onChange={(e) => updateItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
                       required
                       min="0"
-                      step="0.01"
                       style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
                     />
                     <button
                       type="button"
                       onClick={() => removeItem(index)}
-                      disabled={formData.items.length === 1}
                       style={{
                         padding: '8px',
                         backgroundColor: '#ef4444',
                         color: 'white',
                         border: 'none',
                         borderRadius: '4px',
-                        cursor: formData.items.length === 1 ? 'not-allowed' : 'pointer',
-                        opacity: formData.items.length === 1 ? 0.5 : 1
+                        cursor: 'pointer'
                       }}
                     >
                       <Trash2 size={16} />
@@ -499,7 +564,23 @@ export default function OrderReceipts() {
                 ))}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  type="submit"
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  {editingReceipt ? '更新' : '登録'}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -507,28 +588,18 @@ export default function OrderReceipts() {
                     resetForm();
                   }}
                   style={{
-                    padding: '10px 20px',
+                    flex: 1,
+                    padding: '10px',
                     backgroundColor: '#6b7280',
                     color: 'white',
                     border: 'none',
                     borderRadius: '5px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
                   }}
                 >
                   キャンセル
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#3b82f6',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {editingReceipt ? '更新' : '登録'}
                 </button>
               </div>
             </form>
