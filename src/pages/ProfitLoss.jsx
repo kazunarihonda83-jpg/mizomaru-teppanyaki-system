@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Download, Save, Plus } from 'lucide-react';
+import { TrendingUp, Download } from 'lucide-react';
 import api from '../utils/api';
 
 export default function ProfitLoss() {
@@ -47,9 +47,7 @@ export default function ProfitLoss() {
     link.click();
   };
 
-  const handleSave = () => {
-    alert('保存しました');
-  };
+
 
   if (loading) return <div style={{ padding: '20px' }}>読み込み中...</div>;
 
@@ -64,32 +62,8 @@ export default function ProfitLoss() {
         </h1>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '20px' }}>
-        {/* 左側サマリーカード */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <button
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              padding: '12px 20px', 
-              background: 'white', 
-              border: '1px solid #d9d9d9',
-              borderRadius: '8px', 
-              cursor: 'pointer', 
-              fontSize: '14px',
-              fontWeight: '500',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-              transition: 'all 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.borderColor = '#1890ff'}
-            onMouseOut={(e) => e.currentTarget.style.borderColor = '#d9d9d9'}
-          >
-            <Plus size={18} /> 作成証
-          </button>
-        </div>
-
-        {/* 右側メインコンテンツ */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        {/* メインコンテンツ */}
         <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           {/* ヘッダー部分 */}
           <div style={{ background: '#fafafa', padding: '20px', borderBottom: '1px solid #f0f0f0' }}>
@@ -166,13 +140,8 @@ export default function ProfitLoss() {
             </table>
           </div>
 
-          {/* フッター：保存とCSVボタン */}
+          {/* フッター：CSVボタン */}
           <div style={{ padding: '20px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: '12px' }}>
-            <button onClick={handleSave}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 24px', background: '#1890ff',
-                color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-              <Save size={16} /> 保存する
-            </button>
             <button onClick={exportToCSV}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 24px', background: '#52c41a',
                 color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
