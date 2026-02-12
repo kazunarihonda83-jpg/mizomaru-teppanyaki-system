@@ -188,6 +188,8 @@ export function initDatabase() {
       expected_delivery_date DATE,
       actual_delivery_date DATE,
       status TEXT DEFAULT 'ordered',
+      payment_status TEXT DEFAULT 'unpaid',
+      payment_date DATE,
       subtotal REAL DEFAULT 0,
       tax_amount REAL DEFAULT 0,
       total_amount REAL DEFAULT 0,
@@ -393,12 +395,16 @@ export function initDatabase() {
     const defaultAccounts = [
       ['1000', '現金', 'asset'],
       ['1100', '売掛金', 'asset'],
+      ['1200', '預金', 'asset'],
       ['2000', '買掛金', 'liability'],
+      ['2100', '借入金', 'liability'],
+      ['2200', '前受金', 'liability'],
       ['3000', '資本金', 'equity'],
       ['4000', '売上高', 'revenue'],
       ['5000', '仕入高', 'expense'],
       ['6000', '給料', 'expense'],
-      ['7000', '地代家賃', 'expense']
+      ['7000', '地代家賃', 'expense'],
+      ['8000', '水道光熱費', 'expense']
     ];
 
     const stmt = db.prepare('INSERT INTO accounts (account_code, account_name, account_type) VALUES (?, ?, ?)');

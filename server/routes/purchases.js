@@ -117,7 +117,7 @@ router.get('/orders/:id', (req, res) => {
 
 router.post('/orders', (req, res) => {
   try {
-    const { supplier_id, order_date, items, notes, status } = req.body;
+    const { supplier_id, order_date, items, notes, status, payment_status, payment_date } = req.body;
     
     let subtotal = 0;
     items.forEach(item => { 
@@ -130,12 +130,13 @@ router.post('/orders', (req, res) => {
     
     // デフォルトで納品済みステータスにして自動仕訳を作成
     const finalStatus = status || 'delivered';
+    const finalPaymentStatus = payment_status || 'unpaid';
     
     const result = db.prepare(`
       INSERT INTO purchase_orders (
         order_number, supplier_id, order_date, 
-        subtotal, tax_amount, total_amount, status, notes, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        subtotal, tax_amount, total_amount, status, payment_status, payment_date, notes, created_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       orderNumber, 
       supplier_id, 
@@ -143,7 +144,9 @@ router.post('/orders', (req, res) => {
       subtotal, 
       taxAmount, 
       totalAmount, 
-      finalStatus, 
+      finalStatus,
+      finalPaymentStatus,
+      payment_date || null,
       notes, 
       req.user.id
     );
@@ -167,6 +170,62 @@ router.post('/orders', (req, res) => {
       createJournalFromPurchaseOrder(result.lastInsertRowid);
     }
     
+    // 支払済みの場合、現金支払いの仕訳を作成
+    if (finalPaymentStatus === 'paid') {
+      const effectivePaymentDate = payment_date || order_date;
+      
+      // 勘定科目を取得
+      const cashAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '1000'").get(); // 現金
+      const payableAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '2000'").get(); // 買掛金
+      const supplier = db.prepare('SELECT name FROM suppliers WHERE id = ?').get(supplier_id);
+      
+      if (cashAccount && payableAccount && supplier) {
+        // 借方: 買掛金 / 貸方: 現金
+        db.prepare(`
+          INSERT INTO journal_entries (
+            entry_date, description, debit_account_id, credit_account_id, 
+            amount, reference_type, reference_id, admin_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          effectivePaymentDate,
+          `${supplier.name} 仕入支払い (${orderNumber})`,
+          payableAccount.id,
+          cashAccount.id,
+          totalAmount,
+          'purchase_order',
+          result.lastInsertRowid,
+          req.user.id
+        );
+        
+        console.log(`✅ 仕訳帳登録: 仕入支払い ${orderNumber} ¥${totalAmount} (支払日: ${effectivePaymentDate})`);
+        
+        // 現金出納帳に記録
+        const currentBalance = db.prepare(
+          'SELECT balance FROM cash_book ORDER BY transaction_date DESC, created_at DESC LIMIT 1'
+        ).get();
+        const newBalance = (currentBalance?.balance || 0) - totalAmount;
+        
+        db.prepare(`
+          INSERT INTO cash_book (
+            transaction_date, transaction_type, category, description, 
+            amount, balance, reference_type, reference_id, created_by
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          effectivePaymentDate,
+          'expense',
+          '仕入',
+          `発注取引: ${orderNumber}`,
+          totalAmount,
+          newBalance,
+          'purchase_order',
+          result.lastInsertRowid,
+          req.user.id
+        );
+        
+        console.log(`✅ 現金出納帳登録: ${orderNumber} ¥${totalAmount} (残高: ¥${newBalance})`);
+      }
+    }
+    
     res.status(201).json({ 
       id: result.lastInsertRowid, 
       order_number: orderNumber 
@@ -179,7 +238,13 @@ router.post('/orders', (req, res) => {
 
 router.put('/orders/:id', (req, res) => {
   try {
-    const { supplier_id, order_date, items, notes, status, actual_delivery_date } = req.body;
+    const { supplier_id, order_date, items, notes, status, actual_delivery_date, payment_status, payment_date } = req.body;
+    
+    // 既存の発注を取得
+    const existing = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
     
     let subtotal = 0;
     items.forEach(item => { 
@@ -198,7 +263,9 @@ router.put('/orders/:id', (req, res) => {
         total_amount = ?, 
         notes = ?,
         status = ?,
-        actual_delivery_date = ?
+        actual_delivery_date = ?,
+        payment_status = ?,
+        payment_date = ?
       WHERE id = ?
     `).run(
       supplier_id, 
@@ -209,6 +276,8 @@ router.put('/orders/:id', (req, res) => {
       notes,
       status || 'ordered',
       actual_delivery_date || null,
+      payment_status || 'unpaid',
+      payment_date || null,
       req.params.id
     );
     
@@ -231,6 +300,62 @@ router.put('/orders/:id', (req, res) => {
     // 納品済みの場合、自動仕訳を更新
     if (status === 'delivered') {
       createJournalFromPurchaseOrder(req.params.id);
+    }
+    
+    // 未払い→支払済みへの変更時、現金支払いの仕訳を作成
+    if (payment_status === 'paid' && existing.payment_status !== 'paid') {
+      const effectivePaymentDate = payment_date || order_date;
+      
+      // 勘定科目を取得
+      const cashAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '1000'").get(); // 現金
+      const payableAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '2000'").get(); // 買掛金
+      const supplier = db.prepare('SELECT name FROM suppliers WHERE id = ?').get(supplier_id);
+      
+      if (cashAccount && payableAccount && supplier) {
+        // 借方: 買掛金 / 貸方: 現金
+        db.prepare(`
+          INSERT INTO journal_entries (
+            entry_date, description, debit_account_id, credit_account_id, 
+            amount, reference_type, reference_id, admin_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          effectivePaymentDate,
+          `${supplier.name} 仕入支払い (${existing.order_number})`,
+          payableAccount.id,
+          cashAccount.id,
+          totalAmount,
+          'purchase_order',
+          req.params.id,
+          req.user.id
+        );
+        
+        console.log(`✅ 仕訳帳登録: 仕入支払い ${existing.order_number} ¥${totalAmount} (支払日: ${effectivePaymentDate})`);
+        
+        // 現金出納帳に記録
+        const currentBalance = db.prepare(
+          'SELECT balance FROM cash_book ORDER BY transaction_date DESC, created_at DESC LIMIT 1'
+        ).get();
+        const newBalance = (currentBalance?.balance || 0) - totalAmount;
+        
+        db.prepare(`
+          INSERT INTO cash_book (
+            transaction_date, transaction_type, category, description, 
+            amount, balance, reference_type, reference_id, created_by
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          effectivePaymentDate,
+          'expense',
+          '仕入',
+          `発注取引: ${existing.order_number}`,
+          totalAmount,
+          newBalance,
+          'purchase_order',
+          req.params.id,
+          req.user.id
+        );
+        
+        console.log(`✅ 現金出納帳登録: ${existing.order_number} ¥${totalAmount} (残高: ¥${newBalance})`);
+      }
     }
     
     const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);

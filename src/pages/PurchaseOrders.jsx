@@ -9,7 +9,8 @@ export default function PurchaseOrders() {
   const [editingOrder, setEditingOrder] = useState(null);
   const [formData, setFormData] = useState({
     supplier_id: '', order_date: new Date().toISOString().split('T')[0],
-    items: [{product_name:'',quantity:1,unit_price:0}], notes: ''
+    items: [{product_name:'',quantity:1,unit_price:0}], notes: '',
+    payment_status: 'unpaid', payment_date: ''
   });
 
   useEffect(() => { fetchOrders(); fetchSuppliers(); }, []);
@@ -37,7 +38,8 @@ export default function PurchaseOrders() {
       setShowModal(false);
       setEditingOrder(null);
       setFormData({supplier_id:'',order_date:new Date().toISOString().split('T')[0],
-        items:[{product_name:'',quantity:1,unit_price:0}],notes:''});
+        items:[{product_name:'',quantity:1,unit_price:0}],notes:'',
+        payment_status:'unpaid',payment_date:''});
       fetchOrders();
       
       // ダッシュボードに通知
@@ -55,7 +57,9 @@ export default function PurchaseOrders() {
         supplier_id: res.data.supplier_id,
         order_date: res.data.order_date,
         items: res.data.items && res.data.items.length > 0 ? res.data.items : [{product_name:'',quantity:1,unit_price:0}],
-        notes: res.data.notes || ''
+        notes: res.data.notes || '',
+        payment_status: res.data.payment_status || 'unpaid',
+        payment_date: res.data.payment_date || ''
       });
       setShowModal(true);
     } catch (error) {
@@ -109,6 +113,7 @@ export default function PurchaseOrders() {
             <th style={{padding:'12px',textAlign:'left'}}>仕入先</th>
             <th style={{padding:'12px',textAlign:'left'}}>発注日</th>
             <th style={{padding:'12px',textAlign:'right'}}>金額</th>
+            <th style={{padding:'12px',textAlign:'center'}}>支払い</th>
             <th style={{padding:'12px',textAlign:'center'}}>操作</th>
           </tr></thead>
           <tbody>
@@ -118,6 +123,16 @@ export default function PurchaseOrders() {
                 <td style={{padding:'12px'}}>{o.supplier_name}</td>
                 <td style={{padding:'12px'}}>{o.order_date}</td>
                 <td style={{padding:'12px',textAlign:'right',fontWeight:'600'}}>¥{o.total_amount?.toLocaleString()}</td>
+                <td style={{padding:'12px',textAlign:'center'}}>
+                  <span style={{
+                    padding:'4px 12px',borderRadius:'12px',fontSize:'12px',fontWeight:'600',
+                    background:o.payment_status==='paid'?'#f6ffed':'#fff1f0',
+                    color:o.payment_status==='paid'?'#52c41a':'#ff4d4f',
+                    border:`1px solid ${o.payment_status==='paid'?'#b7eb8f':'#ffccc7'}`
+                  }}>
+                    {o.payment_status==='paid'?'支払済み':'未払い'}
+                  </span>
+                </td>
                 <td style={{padding:'12px',textAlign:'center'}}>
                   <div style={{display:'flex',gap:'8px',justifyContent:'center',flexWrap:'wrap'}}>
                     <button onClick={()=>handleCreateDocument(o)} style={{padding:'6px 12px',background:'#fff',
@@ -159,6 +174,21 @@ export default function PurchaseOrders() {
                   <label style={{display:'block',marginBottom:'5px'}}>発注日 *</label>
                   <input type="date" value={formData.order_date} onChange={(e)=>setFormData({...formData,order_date:e.target.value})}
                     required style={{width:'100%',padding:'8px',border:'1px solid #ddd',borderRadius:'4px'}}/>
+                </div>
+              </div>
+              <div style={{marginBottom:'15px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+                <div>
+                  <label style={{display:'block',marginBottom:'5px'}}>支払いステータス</label>
+                  <select value={formData.payment_status} onChange={(e)=>setFormData({...formData,payment_status:e.target.value})}
+                    style={{width:'100%',padding:'8px',border:'1px solid #ddd',borderRadius:'4px'}}>
+                    <option value="unpaid">未払い</option>
+                    <option value="paid">支払済み</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{display:'block',marginBottom:'5px'}}>支払日</label>
+                  <input type="date" value={formData.payment_date} onChange={(e)=>setFormData({...formData,payment_date:e.target.value})}
+                    style={{width:'100%',padding:'8px',border:'1px solid #ddd',borderRadius:'4px'}}/>
                 </div>
               </div>
               <div style={{marginBottom:'20px'}}>

@@ -17,6 +17,7 @@ import purchasesRoutes from './routes/purchases.js';
 import accountingRoutes from './routes/accounting.js';
 import inventoryRoutes from './routes/inventory.js';
 import expensesRoutes from './routes/expenses.js';
+import depositsRoutes from './routes/deposits.js';
 import orderReceiptsRoutes from './routes/order-receipts.js';
 import accountingLedgersRoutes from './routes/accounting-ledgers.js';
 
@@ -52,6 +53,7 @@ app.use('/api/purchases', purchasesRoutes);
 app.use('/api/accounting', accountingRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/expenses', expensesRoutes);
+app.use('/api/deposits', depositsRoutes);
 app.use('/api/order-receipts', orderReceiptsRoutes);
 app.use('/api/accounting-ledgers', accountingLedgersRoutes);
 
