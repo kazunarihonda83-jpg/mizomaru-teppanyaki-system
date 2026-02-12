@@ -31,12 +31,17 @@ export default function ProfitLoss() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      console.log('📊 損益計算書データ取得開始', {
+        start_date: dateRange.start,
+        end_date: dateRange.end
+      });
       const response = await api.get('/accounting/profit-loss', {
         params: { start_date: dateRange.start, end_date: dateRange.end }
       });
+      console.log('✅ 損益計算書レスポンス:', response.data);
       setProfitLoss(response.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Error fetching data:', error);
     } finally {
       setLoading(false);
     }
