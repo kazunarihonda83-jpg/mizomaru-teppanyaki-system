@@ -202,20 +202,81 @@ router.post('/journal', (req, res) => {
 // 仕訳削除
 router.delete('/journal/:id', (req, res) => {
   try {
-    // 自動生成された仕訳は削除不可
-    const entry = db.prepare('SELECT reference_type FROM journal_entries WHERE id = ?').get(req.params.id);
+    const entry = db.prepare('SELECT reference_type, reference_id FROM journal_entries WHERE id = ?').get(req.params.id);
     
-    if (entry && entry.reference_type) {
-      return res.status(403).json({ 
-        error: '自動生成された仕訳は削除できません。元のデータ（請求書、発注書など）を削除してください。' 
-      });
+    if (!entry) {
+      return res.status(404).json({ error: '仕訳が見つかりません' });
     }
     
-    db.prepare('DELETE FROM journal_entries WHERE id = ?').run(req.params.id);
+    // トランザクション開始
+    const deleteTransaction = db.transaction(() => {
+      // 自動生成された仕訳の場合、関連データも削除
+      if (entry.reference_type && entry.reference_id) {
+        console.log(`🗑️ 自動生成仕訳を削除: reference_type=${entry.reference_type}, reference_id=${entry.reference_id}`);
+        
+        // 参照元のデータタイプに応じて削除
+        if (entry.reference_type === 'purchase_order') {
+          // 発注書を削除
+          db.prepare('DELETE FROM purchase_order_items WHERE purchase_order_id = ?').run(entry.reference_id);
+          db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(entry.reference_id);
+          console.log(`✅ 発注書 ID=${entry.reference_id} を削除`);
+        } else if (entry.reference_type === 'order_receipt') {
+          // 受注書を削除
+          db.prepare('DELETE FROM order_receipt_items WHERE receipt_id = ?').run(entry.reference_id);
+          db.prepare('DELETE FROM order_receipts WHERE id = ?').run(entry.reference_id);
+          console.log(`✅ 受注書 ID=${entry.reference_id} を削除`);
+        } else if (entry.reference_type === 'expense_payment') {
+          // 経費支払いデータを削除（journal_entriesのみ）
+          console.log(`✅ 経費支払い仕訳 ID=${entry.reference_id} を削除`);
+        } else if (entry.reference_type === 'deposit_transaction') {
+          // 預金取引データを削除（journal_entriesのみ）
+          console.log(`✅ 預金取引仕訳 ID=${entry.reference_id} を削除`);
+        }
+        
+        // 関連する全ての仕訳を削除
+        const relatedEntries = db.prepare(
+          'SELECT id FROM journal_entries WHERE reference_type = ? AND reference_id = ?'
+        ).all(entry.reference_type, entry.reference_id);
+        
+        relatedEntries.forEach(e => {
+          db.prepare('DELETE FROM journal_entries WHERE id = ?').run(e.id);
+        });
+        
+        console.log(`✅ 関連仕訳 ${relatedEntries.length}件 を削除`);
+        
+        // 現金出納帳の関連エントリも削除
+        const deletedCashBook = db.prepare(
+          'DELETE FROM cash_book WHERE reference_type = ? AND reference_id = ?'
+        ).run(entry.reference_type, entry.reference_id);
+        
+        console.log(`✅ 現金出納帳 ${deletedCashBook.changes}件 を削除`);
+        
+        // 現金出納帳の残高を再計算
+        const cashBookEntries = db.prepare('SELECT * FROM cash_book ORDER BY transaction_date, id').all();
+        let balance = 0;
+        cashBookEntries.forEach(cb => {
+          if (cb.transaction_type === 'income') {
+            balance += cb.amount;
+          } else {
+            balance -= cb.amount;
+          }
+          db.prepare('UPDATE cash_book SET balance = ? WHERE id = ?').run(balance, cb.id);
+        });
+        
+        console.log(`✅ 現金出納帳の残高を再計算`);
+      } else {
+        // 手動仕訳の場合は単純に削除
+        db.prepare('DELETE FROM journal_entries WHERE id = ?').run(req.params.id);
+        console.log(`✅ 手動仕訳 ID=${req.params.id} を削除`);
+      }
+    });
+    
+    deleteTransaction();
+    
     res.json({ message: '仕訳を削除しました' });
   } catch (error) {
     console.error('Error deleting journal entry:', error);
-    res.status(500).json({ error: '仕訳の削除に失敗しました' });
+    res.status(500).json({ error: '仕訳の削除に失敗しました: ' + error.message });
   }
 });
 
