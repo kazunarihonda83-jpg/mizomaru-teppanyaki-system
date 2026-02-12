@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Download, Calendar, DollarSign, Save } from 'lucide-react';
+import { TrendingUp, Download, Calendar, DollarSign } from 'lucide-react';
 import api from '../utils/api';
 
 export default function AccountingCashflow() {
@@ -64,9 +64,7 @@ export default function AccountingCashflow() {
     link.click();
   };
 
-  const handleSave = () => {
-    alert('保存しました');
-  };
+
 
   if (loading) return <div style={{ padding: '20px' }}>読み込み中...</div>;
   if (!cashflow) return <div style={{ padding: '20px' }}>データがありません</div>;
@@ -230,13 +228,8 @@ export default function AccountingCashflow() {
           </table>
         </div>
 
-        {/* フッター：保存とCSVボタン */}
+        {/* フッター：CSVボタン */}
         <div style={{ padding: '20px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: '12px', background: '#fafafa' }}>
-          <button onClick={handleSave}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 24px', background: '#1890ff',
-              color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
-            <Save size={16} /> 保存する
-          </button>
           <button onClick={exportToCSV}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 24px', background: '#52c41a',
               color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
