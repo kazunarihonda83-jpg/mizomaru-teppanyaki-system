@@ -272,59 +272,89 @@ router.get('/balance-sheet', (req, res) => {
     const dateFilter = as_of_date ? ' AND je.entry_date <= ?' : '';
     const params = as_of_date ? [as_of_date] : [];
     
-    // 資産（借方残高）
-    const assets = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total
-      FROM journal_entries je
-      JOIN accounts a ON je.debit_account_id = a.id
-      WHERE a.account_type = 'asset' ${dateFilter}
-    `).get(...params);
+    // 各勘定科目の残高を計算
+    const accountBalances = db.prepare(`
+      SELECT 
+        a.id,
+        a.account_code,
+        a.account_name,
+        a.account_type,
+        COALESCE(SUM(CASE WHEN je.debit_account_id = a.id THEN je.amount ELSE 0 END), 0) as debit_total,
+        COALESCE(SUM(CASE WHEN je.credit_account_id = a.id THEN je.amount ELSE 0 END), 0) as credit_total
+      FROM accounts a
+      LEFT JOIN journal_entries je ON (je.debit_account_id = a.id OR je.credit_account_id = a.id) ${dateFilter.replace('je.entry_date', 'je.entry_date')}
+      WHERE a.is_active = 1
+      GROUP BY a.id, a.account_code, a.account_name, a.account_type
+      ORDER BY a.account_code
+    `).all(...params);
     
-    const assetCredits = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total
-      FROM journal_entries je
-      JOIN accounts a ON je.credit_account_id = a.id
-      WHERE a.account_type = 'asset' ${dateFilter}
-    `).get(...params);
+    // 勘定科目を種類別に分類
+    const assetAccounts = [];
+    const liabilityAccounts = [];
+    const equityAccounts = [];
     
-    // 負債（貸方残高）
-    const liabilities = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total
-      FROM journal_entries je
-      JOIN accounts a ON je.credit_account_id = a.id
-      WHERE a.account_type = 'liability' ${dateFilter}
-    `).get(...params);
+    let assetsTotal = 0;
+    let liabilitiesTotal = 0;
+    let equityTotal = 0;
     
-    const liabilityDebits = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total
-      FROM journal_entries je
-      JOIN accounts a ON je.debit_account_id = a.id
-      WHERE a.account_type = 'liability' ${dateFilter}
-    `).get(...params);
+    let revenueTotal = 0;
+    let expenseTotal = 0;
     
-    // 純資産（貸方残高）
-    const equity = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total
-      FROM journal_entries je
-      JOIN accounts a ON je.credit_account_id = a.id
-      WHERE a.account_type = 'equity' ${dateFilter}
-    `).get(...params);
+    accountBalances.forEach(acc => {
+      // 残高計算（資産・費用は借方、負債・純資産・収益は貸方が正）
+      let balance = 0;
+      if (acc.account_type === 'asset' || acc.account_type === 'expense') {
+        balance = acc.debit_total - acc.credit_total;
+      } else {
+        balance = acc.credit_total - acc.debit_total;
+      }
+      
+      if (balance !== 0) {
+        const accountData = {
+          id: acc.id,
+          code: acc.account_code,
+          name: acc.account_name,
+          balance: balance
+        };
+        
+        if (acc.account_type === 'asset') {
+          assetAccounts.push(accountData);
+          assetsTotal += balance;
+        } else if (acc.account_type === 'liability') {
+          liabilityAccounts.push(accountData);
+          liabilitiesTotal += balance;
+        } else if (acc.account_type === 'equity') {
+          equityAccounts.push(accountData);
+          equityTotal += balance;
+        } else if (acc.account_type === 'revenue') {
+          revenueTotal += balance;
+        } else if (acc.account_type === 'expense') {
+          expenseTotal += balance;
+        }
+      }
+    });
     
-    const equityDebits = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total
-      FROM journal_entries je
-      JOIN accounts a ON je.debit_account_id = a.id
-      WHERE a.account_type = 'equity' ${dateFilter}
-    `).get(...params);
+    // 当期純利益を計算（収益 - 費用）
+    const netIncome = revenueTotal - expenseTotal;
     
-    const assetsTotal = (assets?.total || 0) - (assetCredits?.total || 0);
-    const liabilitiesTotal = (liabilities?.total || 0) - (liabilityDebits?.total || 0);
-    const equityTotal = (equity?.total || 0) - (equityDebits?.total || 0);
+    // 当期純利益を純資産に追加
+    if (netIncome !== 0) {
+      equityAccounts.push({
+        id: 9999,
+        code: '9999',
+        name: '当期純利益',
+        balance: netIncome
+      });
+      equityTotal += netIncome;
+    }
     
     res.json({ 
       assets: assetsTotal, 
       liabilities: liabilitiesTotal, 
-      equity: equityTotal 
+      equity: equityTotal,
+      assetAccounts: assetAccounts,
+      liabilityAccounts: liabilityAccounts,
+      equityAccounts: equityAccounts
     });
   } catch (error) {
     console.error('Error getting balance sheet:', error);

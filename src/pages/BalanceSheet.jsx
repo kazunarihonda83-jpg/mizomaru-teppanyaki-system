@@ -3,7 +3,14 @@ import { Scale, Calendar, Download, Save } from 'lucide-react';
 import api from '../utils/api';
 
 export default function BalanceSheet() {
-  const [balanceSheet, setBalanceSheet] = useState({ assets: 0, liabilities: 0, equity: 0 });
+  const [balanceSheet, setBalanceSheet] = useState({ 
+    assets: 0, 
+    liabilities: 0, 
+    equity: 0,
+    assetAccounts: [],
+    liabilityAccounts: [],
+    equityAccounts: []
+  });
   const [loading, setLoading] = useState(true);
   const [asOfDate, setAsOfDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -65,16 +72,20 @@ export default function BalanceSheet() {
     let csvContent = '貸借対照表,\n';
     csvContent += `基準日,${asOfDate}\n\n`;
     csvContent += '資産の部,\n';
-    csvContent += '現金及び預金,' + Math.round(balanceSheet.assets * 0.6) + '\n';
-    csvContent += '売掛金,' + Math.round(balanceSheet.assets * 0.3) + '\n';
-    csvContent += '棚卸資産,' + Math.round(balanceSheet.assets * 0.1) + '\n';
+    balanceSheet.assetAccounts.forEach(acc => {
+      csvContent += `${acc.name},${Math.round(acc.balance)}\n`;
+    });
     csvContent += '資産合計,' + Math.round(balanceSheet.assets) + '\n\n';
     csvContent += '負債の部,\n';
-    csvContent += '買掛金,' + Math.round(balanceSheet.liabilities * 0.7) + '\n';
-    csvContent += '未払金,' + Math.round(balanceSheet.liabilities * 0.3) + '\n';
+    balanceSheet.liabilityAccounts.forEach(acc => {
+      csvContent += `${acc.name},${Math.round(acc.balance)}\n`;
+    });
+    csvContent += '負債合計,' + Math.round(balanceSheet.liabilities) + '\n\n';
     csvContent += '純資産の部,\n';
-    csvContent += '資本金,' + Math.round(balanceSheet.equity * 0.8) + '\n';
-    csvContent += '利益剰余金,' + Math.round(balanceSheet.equity * 0.2) + '\n';
+    balanceSheet.equityAccounts.forEach(acc => {
+      csvContent += `${acc.name},${Math.round(acc.balance)}\n`;
+    });
+    csvContent += '純資産合計,' + Math.round(balanceSheet.equity) + '\n';
     csvContent += '負債・純資産合計,' + Math.round(balanceSheet.liabilities + balanceSheet.equity) + '\n';
     
     const filename = `balance_sheet_${asOfDate}.csv`;
@@ -140,68 +151,69 @@ export default function BalanceSheet() {
                 </tr>
               </thead>
               <tbody>
-                {/* 行1: 現金及び預金 / 買掛金 */}
-                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '12px 16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px' }}>現金及び預金</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{Math.round(balanceSheet.assets * 0.6).toLocaleString()}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 16px', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px' }}>買掛金</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{Math.round(balanceSheet.liabilities * 0.7).toLocaleString()}</span>
-                    </div>
-                  </td>
-                </tr>
-                {/* 行2: 売掛金 / 未払金 */}
-                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '12px 16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px' }}>売掛金</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{Math.round(balanceSheet.assets * 0.3).toLocaleString()}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 16px', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px' }}>未払金</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{Math.round(balanceSheet.liabilities * 0.3).toLocaleString()}</span>
-                    </div>
-                  </td>
-                </tr>
-                {/* 行3: 棚卸資産 / 純資産の部見出し */}
-                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '12px 16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px' }}>棚卸資産</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{Math.round(balanceSheet.assets * 0.1).toLocaleString()}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px 16px', background: '#fafafa' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600' }}>純資産の部</div>
-                  </td>
-                </tr>
-                {/* 行4: 空 / 資本金 */}
-                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '12px 16px' }}></td>
-                  <td style={{ padding: '12px 16px', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px' }}>資本金</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{Math.round(balanceSheet.equity * 0.8).toLocaleString()}</span>
-                    </div>
-                  </td>
-                </tr>
-                {/* 行5: 空 / 利益剰余金 */}
-                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '12px 16px' }}></td>
-                  <td style={{ padding: '12px 16px', background: '#fafafa' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px' }}>利益剰余金</span>
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>{Math.round(balanceSheet.equity * 0.2).toLocaleString()}</span>
-                    </div>
-                  </td>
-                </tr>
+                {/* 資産と負債を行ごとに表示 */}
+                {(() => {
+                  const maxRows = Math.max(
+                    balanceSheet.assetAccounts.length,
+                    balanceSheet.liabilityAccounts.length + balanceSheet.equityAccounts.length + 1 // +1 for 純資産の部 header
+                  );
+                  const rows = [];
+                  
+                  for (let i = 0; i < maxRows; i++) {
+                    const asset = balanceSheet.assetAccounts[i];
+                    const liabilityIndex = i;
+                    const equityStartIndex = balanceSheet.liabilityAccounts.length + 1; // +1 for header
+                    
+                    let rightCell;
+                    if (liabilityIndex < balanceSheet.liabilityAccounts.length) {
+                      // 負債を表示
+                      const liability = balanceSheet.liabilityAccounts[liabilityIndex];
+                      rightCell = (
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '14px' }}>{liability.name}</span>
+                          <span style={{ fontSize: '14px', fontWeight: '500' }}>{formatCurrency(liability.balance)}</span>
+                        </div>
+                      );
+                    } else if (liabilityIndex === balanceSheet.liabilityAccounts.length) {
+                      // 純資産の部見出し
+                      rightCell = (
+                        <div style={{ fontSize: '14px', fontWeight: '600' }}>純資産の部</div>
+                      );
+                    } else {
+                      // 純資産を表示
+                      const equityIndex = liabilityIndex - equityStartIndex;
+                      if (equityIndex < balanceSheet.equityAccounts.length) {
+                        const equity = balanceSheet.equityAccounts[equityIndex];
+                        rightCell = (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '14px' }}>{equity.name}</span>
+                            <span style={{ fontSize: '14px', fontWeight: '500' }}>{formatCurrency(equity.balance)}</span>
+                          </div>
+                        );
+                      } else {
+                        rightCell = null;
+                      }
+                    }
+                    
+                    rows.push(
+                      <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                        <td style={{ padding: '12px 16px' }}>
+                          {asset && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '14px' }}>{asset.name}</span>
+                              <span style={{ fontSize: '14px', fontWeight: '500' }}>{formatCurrency(asset.balance)}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '12px 16px', background: '#fafafa' }}>
+                          {rightCell}
+                        </td>
+                      </tr>
+                    );
+                  }
+                  
+                  return rows;
+                })()}
                 {/* 合計行 */}
                 <tr style={{ borderTop: '2px solid #e0e0e0', background: '#f5f5f5' }}>
                   <td style={{ padding: '14px 16px' }}>
