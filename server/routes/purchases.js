@@ -1,7 +1,7 @@
 import express from 'express';
 import db from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { createJournalFromPurchaseOrder } from './accounting.js';
+import { createJournalFromPurchaseOrder, processPurchasePayment } from './accounting.js';
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -243,16 +243,51 @@ router.put('/orders/:id', (req, res) => {
 
 router.delete('/orders/:id', (req, res) => {
   try {
-    // 関連する自動仕訳を削除
-    db.prepare(`
+    const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+    if (order) {
+      console.log(`🗑️ 発注取引削除: ${order.order_number}`);
+    }
+
+    // 関連する仕訳を削除
+    const journalDeleted = db.prepare(`
       DELETE FROM journal_entries 
       WHERE reference_type = 'purchase_order' 
       AND reference_id = ?
     `).run(req.params.id);
+    console.log(`  - 仕訳帳エントリ削除: ${journalDeleted.changes}件`);
+    
+    // 関連する現金出納帳エントリを削除
+    const cashBookDeleted = db.prepare(`
+      DELETE FROM cash_book 
+      WHERE reference_type = 'purchase_order' 
+      AND reference_id = ?
+    `).run(req.params.id);
+    console.log(`  - 現金出納帳エントリ削除: ${cashBookDeleted.changes}件`);
+
+    // 現金出納帳の残高を再計算
+    const cashEntries = db.prepare(`
+      SELECT * FROM cash_book 
+      ORDER BY transaction_date ASC, created_at ASC
+    `).all();
+    
+    let balance = 0;
+    for (const entry of cashEntries) {
+      if (entry.transaction_type === 'income' || entry.transaction_type === '入金') {
+        balance += entry.amount;
+      } else {
+        balance -= entry.amount;
+      }
+      db.prepare('UPDATE cash_book SET balance = ? WHERE id = ?').run(balance, entry.id);
+    }
+    console.log(`  - 現金出納帳残高再計算完了`);
     
     // 発注書と明細を削除
     db.prepare('DELETE FROM purchase_order_items WHERE purchase_order_id = ?').run(req.params.id);
     db.prepare('DELETE FROM purchase_orders WHERE id = ?').run(req.params.id);
+    
+    if (order) {
+      console.log(`✅ 発注取引削除完了: ${order.order_number}`);
+    }
     
     res.json({ message: 'Purchase order deleted successfully' });
   } catch (error) {
@@ -282,6 +317,31 @@ router.patch('/orders/:id/status', (req, res) => {
   } catch (error) {
     console.error('Error updating status:', error);
     res.status(500).json({ error: 'Failed to update status' });
+  }
+});
+
+// 発注取引の支払処理エンドポイント
+router.post('/orders/:id/payment', (req, res) => {
+  try {
+    const { payment_date } = req.body;
+    
+    if (!payment_date) {
+      return res.status(400).json({ error: 'payment_date is required' });
+    }
+    
+    // 発注書が存在するか確認
+    const order = db.prepare('SELECT * FROM purchase_orders WHERE id = ?').get(req.params.id);
+    if (!order) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+    
+    // 支払処理（仕訳帳と現金出納帳に記録）
+    processPurchasePayment(req.params.id, payment_date);
+    
+    res.json({ message: 'Payment processed successfully' });
+  } catch (error) {
+    console.error('Error processing payment:', error);
+    res.status(500).json({ error: 'Failed to process payment' });
   }
 });
 

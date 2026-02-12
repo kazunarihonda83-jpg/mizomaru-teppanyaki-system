@@ -472,7 +472,13 @@ export function createJournalFromPurchaseOrder(orderId) {
       WHERE reference_type = 'purchase_order' AND reference_id = ?
     `).run(orderId);
     
-    // 納品完了時のみ仕訳を作成
+    // 既存の現金出納帳エントリを削除
+    db.prepare(`
+      DELETE FROM cash_book 
+      WHERE reference_type = 'purchase_order' AND reference_id = ?
+    `).run(orderId);
+    
+    // 納品完了時に買掛金計上の仕訳を作成
     if (order.status === 'delivered') {
       const purchaseAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '5000'").get();
       const payableAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '2000'").get();
@@ -511,6 +517,75 @@ export function createJournalFromPurchaseOrder(orderId) {
     }
   } catch (error) {
     console.error('[仕訳作成] エラー:', error);
+  }
+}
+
+// 発注取引の支払処理（買掛金 → 現金）
+export function processPurchasePayment(orderId, paymentDate) {
+  try {
+    console.log('[支払処理] 発注ID:', orderId, '支払日:', paymentDate);
+    
+    const order = db.prepare(`
+      SELECT po.*, s.name as supplier_name
+      FROM purchase_orders po
+      LEFT JOIN suppliers s ON po.supplier_id = s.id
+      WHERE po.id = ?
+    `).get(orderId);
+    
+    if (!order) {
+      console.log('[支払処理] 発注が見つかりません');
+      return;
+    }
+    
+    const cashAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '1000'").get(); // 現金
+    const payableAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '2000'").get(); // 買掛金
+    
+    if (cashAccount && payableAccount) {
+      // 借方：買掛金 / 貸方：現金（支払処理）
+      db.prepare(`
+        INSERT INTO journal_entries (
+          entry_date, description, debit_account_id, credit_account_id, 
+          amount, reference_type, reference_id, admin_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        paymentDate,
+        `${order.supplier_name} 買掛金支払 (${order.order_number})`,
+        payableAccount.id,
+        cashAccount.id,
+        order.total_amount,
+        'purchase_order',
+        orderId,
+        order.created_by || 1
+      );
+      
+      console.log(`✅ 仕訳帳登録: 買掛金支払 ${order.order_number} ¥${order.total_amount}`);
+      
+      // 現金出納帳にも記録
+      const currentBalance = db.prepare(
+        'SELECT balance FROM cash_book ORDER BY transaction_date DESC, created_at DESC LIMIT 1'
+      ).get();
+      const newBalance = (currentBalance?.balance || 0) - order.total_amount;
+      
+      db.prepare(`
+        INSERT INTO cash_book (
+          transaction_date, transaction_type, category, description, 
+          amount, balance, reference_type, reference_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        paymentDate,
+        '出金',
+        '仕入',
+        `発注取引: ${order.order_number}`,
+        order.total_amount,
+        newBalance,
+        'purchase_order',
+        orderId
+      );
+      
+      console.log(`✅ 現金出納帳登録: ${order.order_number} -¥${order.total_amount}`);
+    }
+  } catch (error) {
+    console.error('[支払処理] エラー:', error);
   }
 }
 
@@ -982,5 +1057,117 @@ function generateBalanceSheetHTML(assetDetails, liabilityDetails, equityDetails,
 </body>
 </html>`;
 }
+
+// キャッシュフロー計算書エンドポイント
+router.get('/cashflow', authenticateToken, (req, res) => {
+  try {
+    const { start_date, end_date } = req.query;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({ error: 'start_date and end_date are required' });
+    }
+
+    // 現金出納帳から取得
+    const cashTransactions = db.prepare(`
+      SELECT * FROM cash_book 
+      WHERE transaction_date >= ? AND transaction_date <= ?
+      ORDER BY transaction_date ASC
+    `).all(start_date, end_date);
+
+    // 営業キャッシュフロー
+    const operatingCF = {
+      revenue: 0,      // 売上による収入
+      expenses: 0,     // 費用による支出
+      net: 0
+    };
+
+    // 投資キャッシュフロー
+    const investingCF = {
+      purchases: 0,    // 固定資産購入
+      sales: 0,        // 固定資産売却
+      net: 0
+    };
+
+    // 財務キャッシュフロー
+    const financingCF = {
+      borrowings: 0,   // 借入
+      repayments: 0,   // 返済
+      capital: 0,      // 資本金増減
+      net: 0
+    };
+
+    // 期首残高と期末残高
+    const beginningBalance = cashTransactions.length > 0 ? 
+      (cashTransactions[0].balance - cashTransactions[0].amount) : 0;
+    const endingBalance = cashTransactions.length > 0 ? 
+      cashTransactions[cashTransactions.length - 1].balance : beginningBalance;
+
+    // 取引を分類
+    cashTransactions.forEach(tx => {
+      const amount = Math.abs(tx.amount);
+      
+      // 営業キャッシュフロー（売上、仕入、給料、家賃など）
+      if (tx.category === '売上' || tx.description?.includes('売上') || tx.description?.includes('受注')) {
+        if (tx.transaction_type === '入金') {
+          operatingCF.revenue += amount;
+        }
+      } else if (tx.category === '仕入' || tx.description?.includes('仕入') || tx.description?.includes('発注')) {
+        if (tx.transaction_type === '出金') {
+          operatingCF.expenses += amount;
+        }
+      } else if (tx.category === '給料' || tx.category === '家賃' || tx.category === '水道光熱費') {
+        if (tx.transaction_type === '出金') {
+          operatingCF.expenses += amount;
+        }
+      }
+      // 投資キャッシュフロー（固定資産購入・売却）
+      else if (tx.category === '固定資産購入') {
+        if (tx.transaction_type === '出金') {
+          investingCF.purchases += amount;
+        }
+      } else if (tx.category === '固定資産売却') {
+        if (tx.transaction_type === '入金') {
+          investingCF.sales += amount;
+        }
+      }
+      // 財務キャッシュフロー（借入・返済・資本金）
+      else if (tx.category === '借入金' || tx.description?.includes('借入')) {
+        if (tx.transaction_type === '入金') {
+          financingCF.borrowings += amount;
+        } else {
+          financingCF.repayments += amount;
+        }
+      } else if (tx.category === '資本金' || tx.description?.includes('資本金')) {
+        if (tx.transaction_type === '入金') {
+          financingCF.capital += amount;
+        } else {
+          financingCF.capital -= amount;
+        }
+      }
+    });
+
+    // 各セクションの純額を計算
+    operatingCF.net = operatingCF.revenue - operatingCF.expenses;
+    investingCF.net = investingCF.sales - investingCF.purchases;
+    financingCF.net = financingCF.borrowings - financingCF.repayments + financingCF.capital;
+
+    // 現金増減額
+    const cashIncrease = operatingCF.net + investingCF.net + financingCF.net;
+
+    res.json({
+      operating: operatingCF,
+      investing: investingCF,
+      financing: financingCF,
+      beginningBalance,
+      cashIncrease,
+      endingBalance,
+      calculatedEndingBalance: beginningBalance + cashIncrease,
+      transactions: cashTransactions.length
+    });
+  } catch (error) {
+    console.error('Error calculating cashflow:', error);
+    res.status(500).json({ error: 'Failed to calculate cashflow' });
+  }
+});
 
 export default router;

@@ -222,35 +222,35 @@ export default function Layout({ children }) {
             </div>
             {accountingOpen && (
               <div style={{ paddingLeft: '20px', background: 'rgba(0,0,0,0.1)' }}>
-                <Link to="/accounting/tax-deduction" style={{
+                <Link to="/accounting/general-ledger" style={{
                   display: 'block',
                   color: 'white',
                   textDecoration: 'none',
                   padding: '10px 20px',
                   fontSize: '14px',
-                  background: isActive('/accounting/tax-deduction') ? 'rgba(255,255,255,0.15)' : 'transparent'
+                  background: isActive('/accounting/general-ledger') ? 'rgba(255,255,255,0.15)' : 'transparent'
                 }}>
-                  税額控除帳
+                  総勘定元帳
                 </Link>
-                <Link to="/accounting/invoice-ledger" style={{
+                <Link to="/accounting/balance-sheet" style={{
                   display: 'block',
                   color: 'white',
                   textDecoration: 'none',
                   padding: '10px 20px',
                   fontSize: '14px',
-                  background: isActive('/accounting/invoice-ledger') ? 'rgba(255,255,255,0.15)' : 'transparent'
+                  background: isActive('/accounting/balance-sheet') ? 'rgba(255,255,255,0.15)' : 'transparent'
                 }}>
-                  請求判明書
+                  貸借対照表
                 </Link>
-                <Link to="/accounting/cash-book" style={{
+                <Link to="/accounting/profit-loss" style={{
                   display: 'block',
                   color: 'white',
                   textDecoration: 'none',
                   padding: '10px 20px',
                   fontSize: '14px',
-                  background: isActive('/accounting/cash-book') ? 'rgba(255,255,255,0.15)' : 'transparent'
+                  background: isActive('/accounting/profit-loss') ? 'rgba(255,255,255,0.15)' : 'transparent'
                 }}>
-                  現金出納簿
+                  損益計算書
                 </Link>
                 <Link to="/accounting/cashflow" style={{
                   display: 'block',

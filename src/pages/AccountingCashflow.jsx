@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Download, Calendar, DollarSign } from 'lucide-react';
+import { TrendingUp, Download, Calendar, DollarSign, Save } from 'lucide-react';
 import api from '../utils/api';
 
 export default function AccountingCashflow() {
@@ -25,8 +25,8 @@ export default function AccountingCashflow() {
   const loadCashflow = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/accounting-ledgers/cashflow?start_date=${startDate}&end_date=${endDate}`);
-      setCashflow(response.data.data || null);
+      const response = await api.get(`/accounting/cashflow?start_date=${startDate}&end_date=${endDate}`);
+      setCashflow(response.data);
     } catch (err) {
       console.error('Error loading cashflow:', err);
     } finally {
@@ -34,247 +34,216 @@ export default function AccountingCashflow() {
     }
   };
 
-  const exportToPDF = () => {
-    alert('PDF出力機能は準備中です');
+  const exportToCSV = () => {
+    if (!cashflow) return;
+    
+    let csvContent = 'キャッシュフロー計算書,\n';
+    csvContent += `期間,${startDate} 〜 ${endDate}\n\n`;
+    csvContent += 'I. 営業活動によるキャッシュフロー\n';
+    csvContent += `営業収入,${cashflow.operating.revenue}\n`;
+    csvContent += `営業支出,-${cashflow.operating.expenses}\n`;
+    csvContent += `小計,${cashflow.operating.net}\n\n`;
+    csvContent += 'II. 投資活動によるキャッシュフロー\n';
+    csvContent += `投資収入,${cashflow.investing.sales}\n`;
+    csvContent += `投資支出,-${cashflow.investing.purchases}\n`;
+    csvContent += `小計,${cashflow.investing.net}\n\n`;
+    csvContent += 'III. 財務活動によるキャッシュフロー\n';
+    csvContent += `借入金,${cashflow.financing.borrowings}\n`;
+    csvContent += `返済,-${cashflow.financing.repayments}\n`;
+    csvContent += `資本金,${cashflow.financing.capital}\n`;
+    csvContent += `小計,${cashflow.financing.net}\n\n`;
+    csvContent += `期首残高,${cashflow.beginningBalance}\n`;
+    csvContent += `現金増減額,${cashflow.cashIncrease}\n`;
+    csvContent += `期末残高,${cashflow.endingBalance}\n`;
+    
+    const filename = `cashflow_${startDate}_${endDate}.csv`;
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+  };
+
+  const handleSave = () => {
+    alert('保存しました');
   };
 
   if (loading) return <div style={{ padding: '20px' }}>読み込み中...</div>;
+  if (!cashflow) return <div style={{ padding: '20px' }}>データがありません</div>;
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <TrendingUp size={24} />
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>キャッシュフロー計算書</h1>
-        </div>
-        <button
-          onClick={exportToPDF}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '10px 20px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          <Download size={20} />
-          PDFエクスポート
-        </button>
+    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* ヘッダー */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '24px', fontWeight: '600' }}>
+          <TrendingUp size={28} /> キャッシュフロー計算書
+        </h1>
       </div>
 
-      {/* Date Filter */}
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        padding: '20px',
-        marginBottom: '20px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'end' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '14px' }}>
-              <Calendar size={16} style={{ display: 'inline', marginRight: '5px' }} />
-              開始日
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-            />
+      <div style={{ background: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        {/* ヘッダー部分 */}
+        <div style={{ background: '#fafafa', padding: '20px', borderBottom: '1px solid #f0f0f0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '600', margin: 0 }}>キャッシュフロー計算書</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <label style={{ fontSize: '14px', color: '#666' }}>自</label>
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                style={{ padding: '6px 12px', border: '1px solid #d9d9d9', borderRadius: '4px', fontSize: '14px' }} />
+              <label style={{ fontSize: '14px', color: '#666' }}>至</label>
+              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                style={{ padding: '6px 12px', border: '1px solid #d9d9d9', borderRadius: '4px', fontSize: '14px' }} />
+              <span style={{ fontSize: '14px', color: '#999' }}>(単位　円)</span>
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '14px' }}>
-              <Calendar size={16} style={{ display: 'inline', marginRight: '5px' }} />
-              終了日
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-            />
+        </div>
+
+        {/* サマリーカード */}
+        <div style={{ padding: '20px', borderBottom: '1px solid #f0f0f0', background: '#f9fafb' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>期首残高</div>
+              <div style={{ fontSize: '22px', fontWeight: '600', color: '#1890ff' }}>
+                ¥{cashflow.beginningBalance.toLocaleString()}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>現金増減額</div>
+              <div style={{ fontSize: '22px', fontWeight: '600', color: cashflow.cashIncrease >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                {cashflow.cashIncrease >= 0 ? '+' : ''}¥{cashflow.cashIncrease.toLocaleString()}
+              </div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '13px', color: '#666', marginBottom: '8px' }}>期末残高</div>
+              <div style={{ fontSize: '22px', fontWeight: '600', color: '#262626' }}>
+                ¥{cashflow.endingBalance.toLocaleString()}
+              </div>
+            </div>
           </div>
-          <button
-            onClick={loadCashflow}
-            style={{
-              padding: '8px 20px',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            更新
+        </div>
+
+        {/* テーブル */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #e0e0e0' }}>
+                <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '600', background: '#fafafa' }}>
+                  項目
+                </th>
+                <th style={{ padding: '16px', textAlign: 'right', fontSize: '14px', fontWeight: '600', background: '#fafafa', width: '200px' }}>
+                  金額
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* I. 営業活動 */}
+              <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
+                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>I. 営業活動によるキャッシュフロー</td>
+                <td style={{ padding: '14px 16px' }}></td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>営業収入</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', color: '#52c41a' }}>
+                  +{cashflow.operating.revenue.toLocaleString()}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>営業支出</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', color: '#ff4d4f' }}>
+                  -{cashflow.operating.expenses.toLocaleString()}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
+                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>営業活動による純キャッシュフロー</td>
+                <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '15px', fontWeight: '600', 
+                  color: cashflow.operating.net >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                  {cashflow.operating.net >= 0 ? '+' : ''}{cashflow.operating.net.toLocaleString()}
+                </td>
+              </tr>
+
+              {/* II. 投資活動 */}
+              <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
+                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>II. 投資活動によるキャッシュフロー</td>
+                <td style={{ padding: '14px 16px' }}></td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>固定資産売却収入</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', color: '#52c41a' }}>
+                  +{cashflow.investing.sales.toLocaleString()}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>固定資産購入支出</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', color: '#ff4d4f' }}>
+                  -{cashflow.investing.purchases.toLocaleString()}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
+                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>投資活動による純キャッシュフロー</td>
+                <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '15px', fontWeight: '600',
+                  color: cashflow.investing.net >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                  {cashflow.investing.net >= 0 ? '+' : ''}{cashflow.investing.net.toLocaleString()}
+                </td>
+              </tr>
+
+              {/* III. 財務活動 */}
+              <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
+                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>III. 財務活動によるキャッシュフロー</td>
+                <td style={{ padding: '14px 16px' }}></td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>借入金収入</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', color: '#52c41a' }}>
+                  +{cashflow.financing.borrowings.toLocaleString()}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>借入金返済支出</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', color: '#ff4d4f' }}>
+                  -{cashflow.financing.repayments.toLocaleString()}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>資本金増減</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px', 
+                  color: cashflow.financing.capital >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                  {cashflow.financing.capital >= 0 ? '+' : ''}{cashflow.financing.capital.toLocaleString()}
+                </td>
+              </tr>
+              <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
+                <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>財務活動による純キャッシュフロー</td>
+                <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '15px', fontWeight: '600',
+                  color: cashflow.financing.net >= 0 ? '#52c41a' : '#ff4d4f' }}>
+                  {cashflow.financing.net >= 0 ? '+' : ''}{cashflow.financing.net.toLocaleString()}
+                </td>
+              </tr>
+
+              {/* 期末残高 */}
+              <tr style={{ borderTop: '2px solid #e0e0e0', background: '#f6ffed' }}>
+                <td style={{ padding: '16px', fontSize: '15px', fontWeight: '600' }}>
+                  現金及び現金同等物の期末残高
+                </td>
+                <td style={{ padding: '16px', textAlign: 'right', fontSize: '16px', fontWeight: '600' }}>
+                  ¥{cashflow.endingBalance.toLocaleString()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* フッター：保存とCSVボタン */}
+        <div style={{ padding: '20px', borderTop: '1px solid #f0f0f0', display: 'flex', gap: '12px', background: '#fafafa' }}>
+          <button onClick={handleSave}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 24px', background: '#1890ff',
+              color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+            <Save size={16} /> 保存する
+          </button>
+          <button onClick={exportToCSV}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 24px', background: '#52c41a',
+              color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '500' }}>
+            <Download size={16} /> CSV出力
           </button>
         </div>
       </div>
-
-      {cashflow && (
-        <>
-          {/* Summary Cards */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '15px',
-            marginBottom: '20px'
-          }}>
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '20px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-              <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '5px' }}>期首残高</div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
-                ¥{cashflow.summary.opening_balance?.toLocaleString() || 0}
-              </div>
-            </div>
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '20px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-              <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '5px' }}>純キャッシュフロー</div>
-              <div style={{
-                fontSize: '24px',
-                fontWeight: 'bold',
-                color: cashflow.summary.total_net_cashflow >= 0 ? '#10b981' : '#ef4444'
-              }}>
-                {cashflow.summary.total_net_cashflow >= 0 ? '+' : ''}¥{cashflow.summary.total_net_cashflow?.toLocaleString() || 0}
-              </div>
-            </div>
-            <div style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '20px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-            }}>
-              <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '5px' }}>期末残高</div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
-                ¥{cashflow.summary.closing_balance?.toLocaleString() || 0}
-              </div>
-            </div>
-          </div>
-
-          {/* Operating Activities */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '24px',
-            marginBottom: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
-              営業活動によるキャッシュフロー
-            </h2>
-            <div style={{ display: 'grid', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280' }}>営業収入</span>
-                <span style={{ fontWeight: '500', color: '#10b981' }}>
-                  +¥{cashflow.operating_activities.cash_in?.toLocaleString()}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280' }}>営業支出</span>
-                <span style={{ fontWeight: '500', color: '#ef4444' }}>
-                  -¥{cashflow.operating_activities.cash_out?.toLocaleString()}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ fontWeight: '600', color: '#1f2937' }}>小計</span>
-                <span style={{
-                  fontWeight: '700',
-                  fontSize: '18px',
-                  color: cashflow.operating_activities.net >= 0 ? '#10b981' : '#ef4444'
-                }}>
-                  {cashflow.operating_activities.net >= 0 ? '+' : ''}¥{cashflow.operating_activities.net?.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Investing Activities */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '24px',
-            marginBottom: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
-              投資活動によるキャッシュフロー
-            </h2>
-            <div style={{ display: 'grid', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280' }}>投資収入</span>
-                <span style={{ fontWeight: '500', color: '#10b981' }}>
-                  +¥{cashflow.investing_activities.cash_in?.toLocaleString()}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280' }}>投資支出</span>
-                <span style={{ fontWeight: '500', color: '#ef4444' }}>
-                  -¥{cashflow.investing_activities.cash_out?.toLocaleString()}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ fontWeight: '600', color: '#1f2937' }}>小計</span>
-                <span style={{
-                  fontWeight: '700',
-                  fontSize: '18px',
-                  color: cashflow.investing_activities.net >= 0 ? '#10b981' : '#ef4444'
-                }}>
-                  {cashflow.investing_activities.net >= 0 ? '+' : ''}¥{cashflow.investing_activities.net?.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Financing Activities */}
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '24px',
-            marginBottom: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-          }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#1f2937' }}>
-              財務活動によるキャッシュフロー
-            </h2>
-            <div style={{ display: 'grid', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280' }}>財務収入</span>
-                <span style={{ fontWeight: '500', color: '#10b981' }}>
-                  +¥{cashflow.financing_activities.cash_in?.toLocaleString()}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e5e7eb' }}>
-                <span style={{ color: '#6b7280' }}>財務支出</span>
-                <span style={{ fontWeight: '500', color: '#ef4444' }}>
-                  -¥{cashflow.financing_activities.cash_out?.toLocaleString()}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ fontWeight: '600', color: '#1f2937' }}>小計</span>
-                <span style={{
-                  fontWeight: '700',
-                  fontSize: '18px',
-                  color: cashflow.financing_activities.net >= 0 ? '#10b981' : '#ef4444'
-                }}>
-                  {cashflow.financing_activities.net >= 0 ? '+' : ''}¥{cashflow.financing_activities.net?.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
