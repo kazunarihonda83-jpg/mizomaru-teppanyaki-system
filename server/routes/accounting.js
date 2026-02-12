@@ -296,29 +296,82 @@ router.get('/profit-loss', (req, res) => {
       params.push(end_date);
     }
     
-    // 収益（貸方に計上される）
-    const revenue = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total 
-      FROM journal_entries je 
-      JOIN accounts a ON je.credit_account_id = a.id 
-      WHERE a.account_type = 'revenue' ${dateFilter}
-    `).get(...params);
+    // サブカテゴリ別に集計する関数
+    const getAmountBySubcategory = (subcategory, isRevenue) => {
+      if (isRevenue) {
+        // 収益は貸方
+        const result = db.prepare(`
+          SELECT COALESCE(SUM(je.amount), 0) as total 
+          FROM journal_entries je 
+          JOIN accounts a ON je.credit_account_id = a.id 
+          WHERE a.account_type = 'revenue' AND a.subcategory = ? ${dateFilter}
+        `).get(subcategory, ...params);
+        return result?.total || 0;
+      } else {
+        // 費用は借方
+        const result = db.prepare(`
+          SELECT COALESCE(SUM(je.amount), 0) as total 
+          FROM journal_entries je 
+          JOIN accounts a ON je.debit_account_id = a.id 
+          WHERE a.account_type = 'expense' AND a.subcategory = ? ${dateFilter}
+        `).get(subcategory, ...params);
+        return result?.total || 0;
+      }
+    };
     
-    // 費用（借方に計上される）
-    const expenses = db.prepare(`
-      SELECT COALESCE(SUM(je.amount), 0) as total 
-      FROM journal_entries je 
-      JOIN accounts a ON je.debit_account_id = a.id 
-      WHERE a.account_type = 'expense' ${dateFilter}
-    `).get(...params);
+    // 1. 売上高
+    const salesRevenue = getAmountBySubcategory('sales_revenue', true);
     
-    const revenueTotal = revenue?.total || 0;
-    const expensesTotal = expenses?.total || 0;
+    // 2. 売上原価
+    const costOfSales = getAmountBySubcategory('cost_of_sales', false);
+    
+    // 3. 売上総利益
+    const grossProfit = salesRevenue - costOfSales;
+    
+    // 4. 販売費及び一般管理費
+    const sellingExpenses = getAmountBySubcategory('selling_expenses', false);
+    
+    // 5. 営業利益
+    const operatingIncome = grossProfit - sellingExpenses;
+    
+    // 6. 営業外収益
+    const nonOperatingIncome = getAmountBySubcategory('non_operating_income', true);
+    
+    // 7. 営業外費用
+    const nonOperatingExpense = getAmountBySubcategory('non_operating_expense', false);
+    
+    // 8. 経常利益
+    const ordinaryIncome = operatingIncome + nonOperatingIncome - nonOperatingExpense;
+    
+    // 9. 特別利益
+    const extraordinaryIncome = getAmountBySubcategory('extraordinary_income', true);
+    
+    // 10. 特別損失
+    const extraordinaryLoss = getAmountBySubcategory('extraordinary_loss', false);
+    
+    // 11. 税引前当期純利益
+    const incomeBeforeTax = ordinaryIncome + extraordinaryIncome - extraordinaryLoss;
+    
+    // 12. 法人税等
+    const corporateTax = getAmountBySubcategory('corporate_tax', false);
+    
+    // 13. 当期純利益
+    const netIncome = incomeBeforeTax - corporateTax;
     
     res.json({ 
-      revenue: revenueTotal, 
-      expenses: expensesTotal, 
-      net_income: revenueTotal - expensesTotal 
+      sales_revenue: salesRevenue,              // 売上高
+      cost_of_sales: costOfSales,              // 売上原価
+      gross_profit: grossProfit,               // 売上総利益
+      selling_expenses: sellingExpenses,       // 販売費及び一般管理費
+      operating_income: operatingIncome,       // 営業利益
+      non_operating_income: nonOperatingIncome,    // 営業外収益
+      non_operating_expense: nonOperatingExpense,  // 営業外費用
+      ordinary_income: ordinaryIncome,         // 経常利益
+      extraordinary_income: extraordinaryIncome,   // 特別利益
+      extraordinary_loss: extraordinaryLoss,   // 特別損失
+      income_before_tax: incomeBeforeTax,      // 税引前当期純利益
+      corporate_tax: corporateTax,             // 法人税等
+      net_income: netIncome                    // 当期純利益
     });
   } catch (error) {
     console.error('Error getting profit and loss:', error);

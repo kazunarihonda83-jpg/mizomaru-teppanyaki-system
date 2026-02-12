@@ -3,7 +3,21 @@ import { TrendingUp, Download } from 'lucide-react';
 import api from '../utils/api';
 
 export default function ProfitLoss() {
-  const [profitLoss, setProfitLoss] = useState({ revenue: 0, expenses: 0 });
+  const [profitLoss, setProfitLoss] = useState({
+    sales_revenue: 0,
+    cost_of_sales: 0,
+    gross_profit: 0,
+    selling_expenses: 0,
+    operating_income: 0,
+    non_operating_income: 0,
+    non_operating_expense: 0,
+    ordinary_income: 0,
+    extraordinary_income: 0,
+    extraordinary_loss: 0,
+    income_before_tax: 0,
+    corporate_tax: 0,
+    net_income: 0
+  });
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
@@ -32,12 +46,19 @@ export default function ProfitLoss() {
     let csvContent = '損益計算書,\n';
     csvContent += `期間,${dateRange.start} 〜 ${dateRange.end}\n\n`;
     csvContent += '費目,金額\n';
-    csvContent += 'I. 売上高,' + Math.round(profitLoss.revenue) + '\n';
-    csvContent += 'II. 売上原価及び費用\n';
-    csvContent += '売上原価,' + Math.round(profitLoss.expenses * 0.6) + '\n';
-    csvContent += '販売費及び一般管理費,' + Math.round(profitLoss.expenses * 0.4) + '\n';
-    csvContent += '費用合計,' + Math.round(profitLoss.expenses) + '\n';
-    csvContent += '当期純利益,' + Math.round(profitLoss.revenue - profitLoss.expenses) + '\n';
+    csvContent += '売上高,' + Math.round(profitLoss.sales_revenue) + '\n';
+    csvContent += '売上原価,' + Math.round(profitLoss.cost_of_sales) + '\n';
+    csvContent += '売上総利益,' + Math.round(profitLoss.gross_profit) + '\n';
+    csvContent += '販売費及び一般管理費,' + Math.round(profitLoss.selling_expenses) + '\n';
+    csvContent += '営業利益,' + Math.round(profitLoss.operating_income) + '\n';
+    csvContent += '営業外収益,' + Math.round(profitLoss.non_operating_income) + '\n';
+    csvContent += '営業外費用,' + Math.round(profitLoss.non_operating_expense) + '\n';
+    csvContent += '経常利益,' + Math.round(profitLoss.ordinary_income) + '\n';
+    csvContent += '特別利益,' + Math.round(profitLoss.extraordinary_income) + '\n';
+    csvContent += '特別損失,' + Math.round(profitLoss.extraordinary_loss) + '\n';
+    csvContent += '税引前当期純利益,' + Math.round(profitLoss.income_before_tax) + '\n';
+    csvContent += '法人税等,' + Math.round(profitLoss.corporate_tax) + '\n';
+    csvContent += '当期純利益,' + Math.round(profitLoss.net_income) + '\n';
     
     const filename = `profit_loss_${dateRange.start}_${dateRange.end}.csv`;
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -47,11 +68,7 @@ export default function ProfitLoss() {
     link.click();
   };
 
-
-
   if (loading) return <div style={{ padding: '20px' }}>読み込み中...</div>;
-
-  const netIncome = profitLoss.revenue - profitLoss.expenses;
 
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -95,45 +112,109 @@ export default function ProfitLoss() {
                 </tr>
               </thead>
               <tbody>
-                {/* I. 売上高 */}
+                {/* 売上高 */}
                 <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>I. 売上高</td>
+                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>売上高</td>
                   <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '14px', fontWeight: '500' }}>
-                    {Math.round(profitLoss.revenue).toLocaleString()}
+                    {Math.round(profitLoss.sales_revenue).toLocaleString()}
                   </td>
                 </tr>
                 
-                {/* II. 売上原価及び費用 */}
-                <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
-                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>II. 売上原価及び費用</td>
-                  <td style={{ padding: '14px 16px' }}></td>
-                </tr>
+                {/* 売上原価 */}
                 <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>売上原価</td>
+                  <td style={{ padding: '12px 16px', fontSize: '14px' }}>売上原価</td>
                   <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
-                    {Math.round(profitLoss.expenses * 0.6).toLocaleString()}
+                    {Math.round(profitLoss.cost_of_sales).toLocaleString()}
                   </td>
                 </tr>
-                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '12px 16px 12px 36px', fontSize: '14px' }}>販売費及び一般管理費</td>
-                  <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
-                    {Math.round(profitLoss.expenses * 0.4).toLocaleString()}
+                
+                {/* 売上総利益 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#f0f9ff' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '600' }}>売上総利益</td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
+                    {Math.round(profitLoss.gross_profit).toLocaleString()}
                   </td>
                 </tr>
-                <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#fafafa' }}>
-                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '500' }}>費用合計</td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '14px', fontWeight: '500' }}>
-                    {Math.round(profitLoss.expenses).toLocaleString()}
+                
+                {/* 販売費及び一般管理費 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '14px' }}>販売費及び一般管理費</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
+                    {Math.round(profitLoss.selling_expenses).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 営業利益 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#f0f9ff' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '600' }}>営業利益</td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
+                    {Math.round(profitLoss.operating_income).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 営業外収益 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '14px' }}>営業外収益</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
+                    {Math.round(profitLoss.non_operating_income).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 営業外費用 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '14px' }}>営業外費用</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
+                    {Math.round(profitLoss.non_operating_expense).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 経常利益 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#f0f9ff' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '600' }}>経常利益</td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
+                    {Math.round(profitLoss.ordinary_income).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 特別利益 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '14px' }}>特別利益</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
+                    {Math.round(profitLoss.extraordinary_income).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 特別損失 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '14px' }}>特別損失</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
+                    {Math.round(profitLoss.extraordinary_loss).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 税引前当期純利益 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0', background: '#f0f9ff' }}>
+                  <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: '600' }}>税引前当期純利益</td>
+                  <td style={{ padding: '14px 16px', textAlign: 'right', fontSize: '14px', fontWeight: '600' }}>
+                    {Math.round(profitLoss.income_before_tax).toLocaleString()}
+                  </td>
+                </tr>
+                
+                {/* 法人税等 */}
+                <tr style={{ borderBottom: '1px solid #f0f0f0' }}>
+                  <td style={{ padding: '12px 16px', fontSize: '14px' }}>法人税等</td>
+                  <td style={{ padding: '12px 16px', textAlign: 'right', fontSize: '14px' }}>
+                    {Math.round(profitLoss.corporate_tax).toLocaleString()}
                   </td>
                 </tr>
                 
                 {/* 当期純利益 */}
-                <tr style={{ borderTop: '2px solid #e0e0e0', background: netIncome >= 0 ? '#f6ffed' : '#fff7e6' }}>
-                  <td style={{ padding: '16px', fontSize: '15px', fontWeight: '600', color: netIncome >= 0 ? '#52c41a' : '#fa8c16' }}>
+                <tr style={{ borderTop: '2px solid #e0e0e0', background: profitLoss.net_income >= 0 ? '#f6ffed' : '#fff7e6' }}>
+                  <td style={{ padding: '16px', fontSize: '15px', fontWeight: '600', color: profitLoss.net_income >= 0 ? '#52c41a' : '#fa8c16' }}>
                     当期純利益
                   </td>
-                  <td style={{ padding: '16px', textAlign: 'right', fontSize: '16px', fontWeight: '600', color: netIncome >= 0 ? '#52c41a' : '#fa8c16' }}>
-                    {Math.round(netIncome).toLocaleString()}
+                  <td style={{ padding: '16px', textAlign: 'right', fontSize: '16px', fontWeight: '600', color: profitLoss.net_income >= 0 ? '#52c41a' : '#fa8c16' }}>
+                    {Math.round(profitLoss.net_income).toLocaleString()}
                   </td>
                 </tr>
               </tbody>
