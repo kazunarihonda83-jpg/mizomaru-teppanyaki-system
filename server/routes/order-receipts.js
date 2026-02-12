@@ -190,7 +190,10 @@ router.post('/', (req, res) => {
     }
     
     // 支払済みの場合は、さらに売掛金回収の仕訳を追加
-    if (payment_status === 'paid' && payment_date) {
+    if (payment_status === 'paid') {
+      // 支払日が未設定の場合は受注日を使用
+      const effectivePaymentDate = payment_date || order_date;
+      
       // 借方: 現金 / 貸方: 売掛金
       if (cashAccount && receivableAccount && customer) {
         db.prepare(`
@@ -199,7 +202,7 @@ router.post('/', (req, res) => {
             amount, reference_type, reference_id, admin_id
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          payment_date,
+          effectivePaymentDate,
           `${customer.name} 売掛金回収 (${receipt_number})`,
           cashAccount.id,
           receivableAccount.id,
@@ -209,7 +212,7 @@ router.post('/', (req, res) => {
           req.user?.id || 1
         );
 
-        console.log(`✅ 仕訳帳登録: 売掛金回収 ${receipt_number} ¥${total_amount}`);
+        console.log(`✅ 仕訳帳登録: 売掛金回収 ${receipt_number} ¥${total_amount} (支払日: ${effectivePaymentDate})`);
       }
 
       // Add to cash book
@@ -224,7 +227,7 @@ router.post('/', (req, res) => {
           amount, balance, reference_type, reference_id, created_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        payment_date,
+        effectivePaymentDate,
         'income',
         '売上',
         `受注取引: ${receipt_number}`,
@@ -235,7 +238,7 @@ router.post('/', (req, res) => {
         req.user?.id || 1
       );
 
-      console.log(`✅ 現金出納帳登録: ${receipt_number} ¥${total_amount}`);
+      console.log(`✅ 現金出納帳登録: ${receipt_number} ¥${total_amount} (残高: ¥${newBalance})`);
     }
 
     res.status(201).json({ 
@@ -343,7 +346,10 @@ router.put('/:id', (req, res) => {
     const customer = db.prepare('SELECT name FROM customers WHERE id = ?').get(customer_id);
 
     // If payment status changed from unpaid/partial to paid
-    if (payment_status === 'paid' && existing.payment_status !== 'paid' && payment_date) {
+    if (payment_status === 'paid' && existing.payment_status !== 'paid') {
+      // 支払日が未設定の場合は受注日を使用
+      const effectivePaymentDate = payment_date || order_date;
+      
       // 売掛金を現金に振替
       // 借方: 現金 / 貸方: 売掛金
       if (cashAccount && receivableAccount && customer) {
@@ -353,7 +359,7 @@ router.put('/:id', (req, res) => {
             amount, reference_type, reference_id, admin_id
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
-          payment_date,
+          effectivePaymentDate,
           `${customer.name} 売掛金回収 (${existing.receipt_number})`,
           cashAccount.id,
           receivableAccount.id,
@@ -363,7 +369,7 @@ router.put('/:id', (req, res) => {
           req.user?.id || 1
         );
 
-        console.log(`✅ 仕訳帳登録: 売掛金回収 ${existing.receipt_number} ¥${total_amount}`);
+        console.log(`✅ 仕訳帳登録: 売掛金回収 ${existing.receipt_number} ¥${total_amount} (支払日: ${effectivePaymentDate})`);
       }
 
       // Add to cash book
@@ -378,7 +384,7 @@ router.put('/:id', (req, res) => {
           amount, balance, reference_type, reference_id, created_by
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
-        payment_date,
+        effectivePaymentDate,
         'income',
         '売上',
         `受注取引: ${existing.receipt_number}`,
@@ -389,7 +395,7 @@ router.put('/:id', (req, res) => {
         req.user?.id || 1
       );
 
-      console.log(`✅ 現金出納帳登録: ${existing.receipt_number} ¥${total_amount}`);
+      console.log(`✅ 現金出納帳登録: ${existing.receipt_number} ¥${total_amount} (残高: ¥${newBalance})`);
     }
 
     res.json({ message: 'Order receipt updated successfully' });
