@@ -39,7 +39,11 @@ export default function GeneralLedger() {
     try {
       setLoading(true);
       const response = await api.get('/accounting/journal', {
-        params: { start_date: dateRange.start, end_date: dateRange.end }
+        params: { 
+          start_date: dateRange.start, 
+          end_date: dateRange.end,
+          _t: Date.now() // キャッシュバスティング
+        }
       });
       setJournalEntries(response.data);
     } catch (error) {
