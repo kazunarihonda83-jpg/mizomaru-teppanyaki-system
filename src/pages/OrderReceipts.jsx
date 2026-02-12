@@ -11,7 +11,6 @@ export default function OrderReceipts() {
   const [showModal, setShowModal] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState(null);
   const [formData, setFormData] = useState({
-    receipt_number: '',
     customer_id: '',
     order_date: new Date().toISOString().split('T')[0],
     delivery_date: '',
@@ -98,7 +97,6 @@ export default function OrderReceipts() {
 
   const resetForm = () => {
     setFormData({
-      receipt_number: '',
       customer_id: '',
       order_date: new Date().toISOString().split('T')[0],
       delivery_date: '',
@@ -397,16 +395,6 @@ export default function OrderReceipts() {
 
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>受注番号 *</label>
-                  <input
-                    type="text"
-                    value={formData.receipt_number}
-                    onChange={(e) => setFormData({ ...formData, receipt_number: e.target.value })}
-                    required
-                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  />
-                </div>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>
                     顧客 * <span style={{ color: '#999', fontSize: '12px' }}>({customers.length}件)</span>

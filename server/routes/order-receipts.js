@@ -76,7 +76,6 @@ router.post('/', (req, res) => {
   try {
     const db = req.app.get('db');
     const { 
-      receipt_number,
       customer_id,
       order_date,
       delivery_date,
@@ -88,11 +87,26 @@ router.post('/', (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!receipt_number || !customer_id || !order_date || items.length === 0) {
+    if (!customer_id || !order_date || items.length === 0) {
       return res.status(400).json({ 
-        error: 'Receipt number, customer, order date, and items are required' 
+        error: 'Customer, order date, and items are required' 
       });
     }
+
+    // Generate receipt number automatically (OR-YYYYMMDD-XXXX format)
+    const today = new Date(order_date);
+    const dateStr = today.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+    
+    // Get the count of receipts created today
+    const todayCount = db.prepare(`
+      SELECT COUNT(*) as count FROM order_receipts 
+      WHERE receipt_number LIKE ?
+    `).get(`OR-${dateStr}-%`);
+    
+    const sequence = String(todayCount.count + 1).padStart(4, '0');
+    const receipt_number = `OR-${dateStr}-${sequence}`;
+    
+    console.log('📝 Generated receipt number:', receipt_number);
 
     // Calculate totals
     let subtotal = 0;
