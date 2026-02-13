@@ -1286,11 +1286,18 @@ router.get('/cashflow', authenticateToken, (req, res) => {
         if (isCashCredit) {
           operatingCF.expenses += amount;
         }
-      } else if (otherAccountType === 'asset' && otherAccountCode !== '1300') {
-        // 資産科目（商品以外）：売掛金回収など
-        if (isCashDebit) {
-          // 売掛金回収（借方：現金、貸方：売掛金）
-          operatingCF.revenue += amount;
+      } else if (otherAccountType === 'asset') {
+        // 資産科目の処理
+        if (otherAccountCode === '1300') {
+          // 商品購入（借方：商品、貸方：現金）
+          if (isCashCredit) {
+            operatingCF.expenses += amount;
+          }
+        } else {
+          // 売掛金回収など（借方：現金、貸方：売掛金）
+          if (isCashDebit) {
+            operatingCF.revenue += amount;
+          }
         }
       } else if (otherAccountType === 'liability' && otherAccountCode === '2000') {
         // 買掛金支払（借方：買掛金、貸方：現金）

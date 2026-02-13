@@ -44,9 +44,9 @@ function createInventoryJournalEntry(inventoryId, movementType, quantity, unitCo
     let debitAccount, creditAccount, description;
     
     if (movementType === 'in' || movementType === 'initial') {
-      // 入庫: 借方 商品 / 貸方 買掛金（または現金）
+      // 入庫: 借方 商品 / 貸方 現金（現金購入）
       debitAccount = '1300';  // 商品（資産）
-      creditAccount = '2000'; // 買掛金（負債）
+      creditAccount = '1000'; // 現金（資産）
       description = `在庫入庫: ${inventory.item_name} ${Math.abs(quantity)}${inventory.unit}`;
     } else if (movementType === 'out') {
       // 出庫: 借方 売上原価 / 貸方 商品
