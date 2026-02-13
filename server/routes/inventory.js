@@ -4,6 +4,96 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+// 在庫関連の勘定科目を取得または作成
+function ensureInventoryAccounts() {
+  const accounts = [
+    { code: '1300', name: '商品', type: 'asset' },
+    { code: '5100', name: '売上原価', type: 'expense' },
+    { code: '8100', name: '雑損失', type: 'expense' },
+    { code: '7100', name: '雑収入', type: 'revenue' }
+  ];
+
+  accounts.forEach(acc => {
+    const exists = db.prepare('SELECT * FROM accounts WHERE account_code = ?').get(acc.code);
+    if (!exists) {
+      db.prepare(`
+        INSERT INTO accounts (account_code, account_name, account_type)
+        VALUES (?, ?, ?)
+      `).run(acc.code, acc.name, acc.type);
+      console.log(`✅ 勘定科目追加: [${acc.code}] ${acc.name}`);
+    }
+  });
+}
+
+// 在庫移動時の仕訳を自動生成
+function createInventoryJournalEntry(inventoryId, movementType, quantity, unitCost, userId, notes) {
+  try {
+    ensureInventoryAccounts();
+    
+    const inventory = db.prepare('SELECT * FROM inventory WHERE id = ?').get(inventoryId);
+    if (!inventory) return;
+
+    const amount = Math.abs(quantity) * (unitCost || inventory.unit_cost);
+    const entryDate = new Date().toISOString().split('T')[0];
+    
+    let debitAccount, creditAccount, description;
+    
+    if (movementType === 'in' || movementType === 'initial') {
+      // 入庫: 借方 商品 / 貸方 買掛金（または現金）
+      debitAccount = '1300';  // 商品（資産）
+      creditAccount = '2000'; // 買掛金（負債）
+      description = `在庫入庫: ${inventory.item_name} ${Math.abs(quantity)}${inventory.unit}`;
+    } else if (movementType === 'out') {
+      // 出庫: 借方 売上原価 / 貸方 商品
+      debitAccount = '5100';  // 売上原価（費用）
+      creditAccount = '1300'; // 商品（資産）
+      description = `在庫出庫: ${inventory.item_name} ${Math.abs(quantity)}${inventory.unit}`;
+    } else if (movementType === 'adjustment') {
+      // 調整: 増加は雑収入、減少は雑損失
+      if (quantity > 0) {
+        debitAccount = '1300';  // 商品（資産）
+        creditAccount = '7100'; // 雑収入（収益）
+        description = `在庫調整（増加）: ${inventory.item_name} +${Math.abs(quantity)}${inventory.unit}`;
+      } else {
+        debitAccount = '8100';  // 雑損失（費用）
+        creditAccount = '1300'; // 商品（資産）
+        description = `在庫調整（減少）: ${inventory.item_name} -${Math.abs(quantity)}${inventory.unit}`;
+      }
+    } else {
+      return; // 未知の移動タイプ
+    }
+    
+    if (notes) {
+      description += ` (${notes})`;
+    }
+
+    // 勘定科目IDを取得
+    const debitAccountId = db.prepare('SELECT id FROM accounts WHERE account_code = ?').get(debitAccount)?.id;
+    const creditAccountId = db.prepare('SELECT id FROM accounts WHERE account_code = ?').get(creditAccount)?.id;
+    
+    if (!debitAccountId || !creditAccountId) {
+      console.error(`❌ 在庫仕訳エラー: 勘定科目が見つかりません (借方: ${debitAccount}, 貸方: ${creditAccount})`);
+      return;
+    }
+
+    // 仕訳を生成（1つのエントリで借方・貸方を記録）
+    db.prepare(`
+      INSERT INTO journal_entries (
+        entry_date, description, debit_account_id, credit_account_id, amount,
+        reference_type, reference_id, admin_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      entryDate, description, debitAccountId, creditAccountId, amount,
+      'inventory_movement', inventoryId, userId
+    );
+    
+    console.log(`✅ 在庫仕訳生成: ${description} ¥${amount}`);
+  } catch (error) {
+    console.error('Error creating inventory journal entry:', error);
+    throw error;
+  }
+}
+
 // すべてのルートに認証を適用
 router.use(authenticateToken);
 
@@ -122,6 +212,16 @@ router.post('/', (req, res) => {
         'manual',
         '初期在庫登録',
         req.user.id
+      );
+      
+      // 会計仕訳を自動生成
+      createInventoryJournalEntry(
+        result.lastInsertRowid,
+        'initial',
+        current_stock,
+        unit_cost,
+        req.user.id,
+        '初期在庫登録'
       );
     }
 
@@ -255,6 +355,7 @@ router.post('/:id/movement', (req, res) => {
       .run(newStock, req.params.id);
 
     // 移動履歴を記録
+    const actualQuantity = movement_type === 'out' ? -Math.abs(quantity) : Math.abs(quantity);
     db.prepare(`
       INSERT INTO inventory_movements (
         inventory_id, movement_type, quantity, unit_cost,
@@ -263,12 +364,22 @@ router.post('/:id/movement', (req, res) => {
     `).run(
       req.params.id,
       movement_type,
-      movement_type === 'out' ? -Math.abs(quantity) : Math.abs(quantity),
+      actualQuantity,
       unit_cost || inventory.unit_cost,
       reference_type || null,
       reference_id || null,
       notes || null,
       req.user.id
+    );
+    
+    // 会計仕訳を自動生成
+    createInventoryJournalEntry(
+      req.params.id,
+      movement_type,
+      actualQuantity,
+      unit_cost || inventory.unit_cost,
+      req.user.id,
+      notes
     );
 
     // 在庫アラートをチェック
