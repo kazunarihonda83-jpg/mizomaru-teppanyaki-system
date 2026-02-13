@@ -1211,12 +1211,25 @@ router.get('/cashflow', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'start_date and end_date are required' });
     }
 
-    // 現金出納帳から取得
+    // 現金勘定（1000）のIDを取得
+    const cashAccount = db.prepare('SELECT id FROM accounts WHERE account_code = ?').get('1000');
+    if (!cashAccount) {
+      return res.status(404).json({ error: 'Cash account not found' });
+    }
+
+    // 現金が関係する仕訳を取得（借方または貸方が現金）
     const cashTransactions = db.prepare(`
-      SELECT * FROM cash_book 
-      WHERE transaction_date >= ? AND transaction_date <= ?
-      ORDER BY transaction_date ASC
-    `).all(start_date, end_date);
+      SELECT 
+        j.*,
+        da.account_name as debit_name, da.account_code as debit_code, da.account_type as debit_type,
+        ca.account_name as credit_name, ca.account_code as credit_code, ca.account_type as credit_type
+      FROM journal_entries j
+      LEFT JOIN accounts da ON j.debit_account_id = da.id
+      LEFT JOIN accounts ca ON j.credit_account_id = ca.id
+      WHERE (j.debit_account_id = ? OR j.credit_account_id = ?)
+        AND j.entry_date >= ? AND j.entry_date <= ?
+      ORDER BY j.entry_date ASC, j.id ASC
+    `).all(cashAccount.id, cashAccount.id, start_date, end_date);
 
     // 営業キャッシュフロー
     const operatingCF = {
@@ -1240,52 +1253,71 @@ router.get('/cashflow', authenticateToken, (req, res) => {
       net: 0
     };
 
-    // 期首残高と期末残高
-    const beginningBalance = cashTransactions.length > 0 ? 
-      (cashTransactions[0].balance - cashTransactions[0].amount) : 0;
-    const endingBalance = cashTransactions.length > 0 ? 
-      cashTransactions[cashTransactions.length - 1].balance : beginningBalance;
+    // 期首の現金残高を計算
+    const beginningBalanceData = db.prepare(`
+      SELECT 
+        COALESCE(SUM(CASE WHEN debit_account_id = ? THEN amount ELSE 0 END), 0) as debit,
+        COALESCE(SUM(CASE WHEN credit_account_id = ? THEN amount ELSE 0 END), 0) as credit
+      FROM journal_entries
+      WHERE entry_date < ?
+    `).get(cashAccount.id, cashAccount.id, start_date);
+    
+    const beginningBalance = beginningBalanceData.debit - beginningBalanceData.credit;
 
-    // 取引を分類
+    // 現金取引を分類
     cashTransactions.forEach(tx => {
-      const amount = Math.abs(tx.amount);
+      const amount = tx.amount;
+      const isCashDebit = tx.debit_account_id === cashAccount.id;  // 現金が借方（入金）
+      const isCashCredit = tx.credit_account_id === cashAccount.id; // 現金が貸方（出金）
       
-      // 営業キャッシュフロー（売上、仕入、給料、家賃など）
-      if (tx.category === '売上' || tx.description?.includes('売上') || tx.description?.includes('受注')) {
-        if (tx.transaction_type === '入金') {
+      // 相手勘定の種類を確認
+      const otherAccountType = isCashDebit ? tx.credit_type : tx.debit_type;
+      const otherAccountCode = isCashDebit ? tx.credit_code : tx.debit_code;
+      const otherAccountName = isCashDebit ? tx.credit_name : tx.debit_name;
+      
+      // 営業キャッシュフロー
+      if (otherAccountType === 'revenue') {
+        // 収益科目：売上など（現金が借方 = 入金）
+        if (isCashDebit) {
           operatingCF.revenue += amount;
         }
-      } else if (tx.category === '仕入' || tx.description?.includes('仕入') || tx.description?.includes('発注')) {
-        if (tx.transaction_type === '出金') {
+      } else if (otherAccountType === 'expense') {
+        // 費用科目：仕入、給料、家賃など（現金が貸方 = 出金）
+        if (isCashCredit) {
           operatingCF.expenses += amount;
         }
-      } else if (tx.category === '給料' || tx.category === '家賃' || tx.category === '水道光熱費') {
-        if (tx.transaction_type === '出金') {
+      } else if (otherAccountType === 'asset' && otherAccountCode !== '1300') {
+        // 資産科目（商品以外）：売掛金回収など
+        if (isCashDebit) {
+          // 売掛金回収（借方：現金、貸方：売掛金）
+          operatingCF.revenue += amount;
+        }
+      } else if (otherAccountType === 'liability' && otherAccountCode === '2000') {
+        // 買掛金支払（借方：買掛金、貸方：現金）
+        if (isCashCredit) {
           operatingCF.expenses += amount;
         }
       }
-      // 投資キャッシュフロー（固定資産購入・売却）
-      else if (tx.category === '固定資産購入') {
-        if (tx.transaction_type === '出金') {
+      // 投資キャッシュフロー
+      else if (tx.description && (tx.description.includes('固定資産') || tx.description.includes('設備投資'))) {
+        if (isCashCredit) {
           investingCF.purchases += amount;
-        }
-      } else if (tx.category === '固定資産売却') {
-        if (tx.transaction_type === '入金') {
+        } else if (isCashDebit) {
           investingCF.sales += amount;
         }
       }
-      // 財務キャッシュフロー（借入・返済・資本金）
-      else if (tx.category === '借入金' || tx.description?.includes('借入')) {
-        if (tx.transaction_type === '入金') {
-          financingCF.borrowings += amount;
-        } else {
-          financingCF.repayments += amount;
-        }
-      } else if (tx.category === '資本金' || tx.description?.includes('資本金')) {
-        if (tx.transaction_type === '入金') {
+      // 財務キャッシュフロー
+      else if (otherAccountType === 'equity' || (tx.description && tx.description.includes('資本金'))) {
+        if (isCashDebit) {
           financingCF.capital += amount;
         } else {
           financingCF.capital -= amount;
+        }
+      } else if (tx.description && (tx.description.includes('借入') || tx.description.includes('融資'))) {
+        if (isCashDebit) {
+          financingCF.borrowings += amount;
+        } else {
+          financingCF.repayments += amount;
         }
       }
     });
@@ -1297,6 +1329,9 @@ router.get('/cashflow', authenticateToken, (req, res) => {
 
     // 現金増減額
     const cashIncrease = operatingCF.net + investingCF.net + financingCF.net;
+
+    // 期末残高を計算
+    const endingBalance = beginningBalance + cashIncrease;
 
     res.json({
       operating: operatingCF,
