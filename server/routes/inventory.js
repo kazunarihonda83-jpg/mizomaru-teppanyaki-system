@@ -7,20 +7,25 @@ const router = express.Router();
 // 在庫関連の勘定科目を取得または作成
 function ensureInventoryAccounts() {
   const accounts = [
-    { code: '1300', name: '商品', type: 'asset' },
-    { code: '5100', name: '売上原価', type: 'expense' },
-    { code: '8100', name: '雑損失', type: 'expense' },
-    { code: '7100', name: '雑収入', type: 'revenue' }
+    { code: '1300', name: '商品', type: 'asset', subcategory: null },
+    { code: '5100', name: '売上原価', type: 'expense', subcategory: 'cost_of_sales' },
+    { code: '8100', name: '雑損失', type: 'expense', subcategory: 'non_operating_expense' },
+    { code: '7100', name: '雑収入', type: 'revenue', subcategory: 'non_operating_income' }
   ];
 
   accounts.forEach(acc => {
     const exists = db.prepare('SELECT * FROM accounts WHERE account_code = ?').get(acc.code);
     if (!exists) {
       db.prepare(`
-        INSERT INTO accounts (account_code, account_name, account_type)
-        VALUES (?, ?, ?)
-      `).run(acc.code, acc.name, acc.type);
-      console.log(`✅ 勘定科目追加: [${acc.code}] ${acc.name}`);
+        INSERT INTO accounts (account_code, account_name, account_type, subcategory)
+        VALUES (?, ?, ?, ?)
+      `).run(acc.code, acc.name, acc.type, acc.subcategory);
+      console.log(`✅ 勘定科目追加: [${acc.code}] ${acc.name} (${acc.subcategory || 'なし'})`);
+    } else if (acc.subcategory && !exists.subcategory) {
+      // subcategoryが未設定の場合は更新
+      db.prepare('UPDATE accounts SET subcategory = ? WHERE account_code = ?')
+        .run(acc.subcategory, acc.code);
+      console.log(`✅ 勘定科目更新: [${acc.code}] ${acc.name} → ${acc.subcategory}`);
     }
   });
 }
