@@ -283,7 +283,7 @@ export default function Layout({ children }) {
           zIndex: 100
         }}>
           <div style={{ fontSize: '18px', fontWeight: '600', color: '#2563ab' }}>
-            システムクラウド株式会社
+            麺家弍色
           </div>
           
           {/* User Menu */}
@@ -302,7 +302,7 @@ export default function Layout({ children }) {
               }}
             >
               <User size={20} color="#2563ab" />
-              <span style={{ fontSize: '14px', color: '#333' }}>システムクラウド株式会社</span>
+              <span style={{ fontSize: '14px', color: '#333' }}>麺家弍色</span>
               {userMenuOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </div>
 
