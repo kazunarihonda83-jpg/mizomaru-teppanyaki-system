@@ -218,6 +218,7 @@ export function initDatabase() {
       account_code TEXT UNIQUE NOT NULL,
       account_name TEXT NOT NULL,
       account_type TEXT NOT NULL,
+      subcategory TEXT,
       parent_account_id INTEGER,
       is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -393,25 +394,30 @@ export function initDatabase() {
   if (accountsCount.count === 0) {
     console.log('Creating default accounts...');
     const defaultAccounts = [
-      ['1000', '現金', 'asset'],
-      ['1100', '売掛金', 'asset'],
-      ['1200', '預金', 'asset'],
-      ['2000', '買掛金', 'liability'],
-      ['2100', '借入金', 'liability'],
-      ['2200', '前受金', 'liability'],
-      ['3000', '資本金', 'equity'],
-      ['4000', '売上高', 'revenue'],
-      ['5000', '仕入高', 'expense'],
-      ['6000', '給料', 'expense'],
-      ['7000', '地代家賃', 'expense'],
-      ['8000', '水道光熱費', 'expense']
+      ['1000', '現金', 'asset', null],
+      ['1100', '売掛金', 'asset', null],
+      ['1200', '預金', 'asset', null],
+      ['1300', '商品', 'asset', null],
+      ['2000', '買掛金', 'liability', null],
+      ['2100', '借入金', 'liability', null],
+      ['2200', '前受金', 'liability', null],
+      ['3000', '資本金', 'equity', null],
+      ['4000', '売上高', 'revenue', null],
+      ['5000', '仕入高', 'expense', null],
+      ['5100', '売上原価', 'expense', null],
+      ['6000', '給料', 'expense', null],
+      ['7000', '地代家賃', 'expense', null],
+      ['7100', '雑収入', 'revenue', null],
+      ['8000', '水道光熱費', 'expense', null],
+      ['8100', '雑損失', 'expense', null]
     ];
 
-    const stmt = db.prepare('INSERT INTO accounts (account_code, account_name, account_type) VALUES (?, ?, ?)');
-    for (const [code, name, type] of defaultAccounts) {
-      stmt.run(code, name, type);
+    const stmt = db.prepare('INSERT INTO accounts (account_code, account_name, account_type, subcategory) VALUES (?, ?, ?, ?)');
+    for (const [code, name, type, subcategory] of defaultAccounts) {
+      stmt.run(code, name, type, subcategory);
+      console.log(`✅ 勘定科目追加: [${code}] ${name}`);
     }
-    console.log('Default accounts created successfully');
+    console.log('✅ All default accounts created successfully');
   }
 
   // Create default suppliers if they don't exist
