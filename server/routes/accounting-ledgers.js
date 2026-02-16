@@ -287,6 +287,108 @@ router.get('/invoice-ledger', (req, res) => {
   }
 });
 
+// Get general ledger
+router.get('/general-ledger', (req, res) => {
+  try {
+    const db = req.app.get('db');
+    const { start_date, end_date, account_id } = req.query;
+
+    // Build base query
+    let query = `
+      SELECT 
+        je.id,
+        je.entry_date,
+        je.description,
+        je.amount,
+        debit_acc.code as debit_code,
+        debit_acc.name as debit_name,
+        credit_acc.code as credit_code,
+        credit_acc.name as credit_name,
+        je.reference_type,
+        je.reference_id
+      FROM journal_entries je
+      LEFT JOIN accounts debit_acc ON je.debit_account_id = debit_acc.id
+      LEFT JOIN accounts credit_acc ON je.credit_account_id = credit_acc.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    // Filter by date range
+    if (start_date) {
+      query += ` AND je.entry_date >= ?`;
+      params.push(start_date);
+    }
+    if (end_date) {
+      query += ` AND je.entry_date <= ?`;
+      params.push(end_date);
+    }
+
+    // Filter by specific account
+    if (account_id) {
+      query += ` AND (je.debit_account_id = ? OR je.credit_account_id = ?)`;
+      params.push(account_id, account_id);
+    }
+
+    query += ` ORDER BY je.entry_date DESC, je.id DESC`;
+
+    const entries = db.prepare(query).all(...params);
+
+    // Get all accounts for the ledger view
+    const accounts = db.prepare('SELECT id, code, name, account_type FROM accounts ORDER BY code').all();
+
+    // Calculate balances for each account
+    const accountBalances = {};
+    accounts.forEach(account => {
+      const balanceData = db.prepare(`
+        SELECT 
+          SUM(CASE WHEN debit_account_id = ? THEN amount ELSE 0 END) as total_debit,
+          SUM(CASE WHEN credit_account_id = ? THEN amount ELSE 0 END) as total_credit
+        FROM journal_entries
+        WHERE 1=1
+          ${start_date ? 'AND entry_date >= ?' : ''}
+          ${end_date ? 'AND entry_date <= ?' : ''}
+      `).get(
+        account.id, 
+        account.id,
+        ...(start_date ? [start_date] : []),
+        ...(end_date ? [end_date] : [])
+      );
+
+      const total_debit = balanceData?.total_debit || 0;
+      const total_credit = balanceData?.total_credit || 0;
+
+      // Calculate balance based on account type
+      let balance;
+      if (['asset', 'expense'].includes(account.account_type)) {
+        balance = total_debit - total_credit;
+      } else {
+        balance = total_credit - total_debit;
+      }
+
+      accountBalances[account.id] = {
+        code: account.code,
+        name: account.name,
+        account_type: account.account_type,
+        total_debit,
+        total_credit,
+        balance
+      };
+    });
+
+    res.json({ 
+      data: entries,
+      accounts: accountBalances,
+      summary: {
+        total_entries: entries.length,
+        period: { start_date, end_date }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching general ledger:', error);
+    res.status(500).json({ error: 'Failed to fetch general ledger' });
+  }
+});
+
 // Get cashflow statement
 router.get('/cashflow', (req, res) => {
   try {
