@@ -90,6 +90,38 @@ if (process.env.NODE_ENV === 'production' && process.env.SERVE_FRONTEND === 'tru
   console.log('Backend API only mode - frontend serving disabled');
 }
 
+// 勘定科目のsubcategory修正（起動時に毎回実行）
+try {
+  console.log('\n🔧 勘定科目のsubcategory確認・修正...');
+  const fixes = [
+    { code: '4000', subcategory: 'sales_revenue' },
+    { code: '5000', subcategory: 'cost_of_sales' },
+    { code: '5100', subcategory: 'cost_of_sales' },
+    { code: '6000', subcategory: 'selling_expenses' },
+    { code: '7000', subcategory: 'selling_expenses' },
+    { code: '7100', subcategory: 'non_operating_income' },
+    { code: '8000', subcategory: 'selling_expenses' },
+    { code: '8100', subcategory: 'extraordinary_loss' }
+  ];
+  
+  let fixCount = 0;
+  fixes.forEach(fix => {
+    const account = db.prepare('SELECT subcategory FROM accounts WHERE account_code = ?').get(fix.code);
+    if (account && !account.subcategory) {
+      db.prepare('UPDATE accounts SET subcategory = ? WHERE account_code = ?').run(fix.subcategory, fix.code);
+      fixCount++;
+    }
+  });
+  
+  if (fixCount > 0) {
+    console.log(`✅ 勘定科目のsubcategory修正: ${fixCount}件\n`);
+  } else {
+    console.log(`✅ 勘定科目のsubcategory: 正常\n`);
+  }
+} catch (error) {
+  console.error('❌ 勘定科目修正エラー:', error.message);
+}
+
 // ワンタイム修正スクリプト実行（FIX_ORDER_JOURNALS=true の場合のみ）
 if (process.env.FIX_ORDER_JOURNALS === 'true') {
   console.log('\n🔧 受注取引の仕訳修正を実行します...\n');
