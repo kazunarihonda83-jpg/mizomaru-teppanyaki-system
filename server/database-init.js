@@ -402,14 +402,14 @@ export function initDatabase() {
       ['2100', '借入金', 'liability', null],
       ['2200', '前受金', 'liability', null],
       ['3000', '資本金', 'equity', null],
-      ['4000', '売上高', 'revenue', null],
-      ['5000', '仕入高', 'expense', null],
-      ['5100', '売上原価', 'expense', null],
-      ['6000', '給料', 'expense', null],
-      ['7000', '地代家賃', 'expense', null],
-      ['7100', '雑収入', 'revenue', null],
-      ['8000', '水道光熱費', 'expense', null],
-      ['8100', '雑損失', 'expense', null]
+      ['4000', '売上高', 'revenue', 'sales_revenue'],
+      ['5000', '仕入高', 'expense', 'cost_of_sales'],
+      ['5100', '売上原価', 'expense', 'cost_of_sales'],
+      ['6000', '給料', 'expense', 'selling_expenses'],
+      ['7000', '地代家賃', 'expense', 'selling_expenses'],
+      ['7100', '雑収入', 'revenue', 'non_operating_income'],
+      ['8000', '水道光熱費', 'expense', 'selling_expenses'],
+      ['8100', '雑損失', 'expense', 'non_operating_expense']
     ];
 
     const stmt = db.prepare('INSERT INTO accounts (account_code, account_name, account_type, subcategory) VALUES (?, ?, ?, ?)');
