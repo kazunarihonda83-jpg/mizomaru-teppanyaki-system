@@ -90,6 +90,100 @@ if (process.env.NODE_ENV === 'production' && process.env.SERVE_FRONTEND === 'tru
   console.log('Backend API only mode - frontend serving disabled');
 }
 
+// ワンタイム修正スクリプト実行（FIX_ORDER_JOURNALS=true の場合のみ）
+if (process.env.FIX_ORDER_JOURNALS === 'true') {
+  console.log('\n🔧 受注取引の仕訳修正を実行します...\n');
+  try {
+    // 勘定科目を取得
+    const cashAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '1000'").get();
+    const receivableAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '1100'").get();
+    const revenueAccount = db.prepare("SELECT id FROM accounts WHERE account_code = '4000'").get();
+
+    if (cashAccount && receivableAccount && revenueAccount) {
+      // 全受注取引を取得
+      const orderReceipts = db.prepare(`
+        SELECT ore.*, c.name as customer_name
+        FROM order_receipts ore
+        LEFT JOIN customers c ON ore.customer_id = c.id
+        ORDER BY ore.order_date ASC
+      `).all();
+
+      let createdCount = 0;
+      for (const receipt of orderReceipts) {
+        // 既存の仕訳を確認
+        const existingJournal = db.prepare(`
+          SELECT COUNT(*) as count FROM journal_entries 
+          WHERE reference_type = 'order_receipt' AND reference_id = ?
+        `).get(receipt.id);
+
+        if (existingJournal.count > 0) continue;
+
+        // 仕訳作成
+        if (receipt.payment_status === 'paid') {
+          const effectivePaymentDate = receipt.payment_date || receipt.order_date;
+          db.prepare(`
+            INSERT INTO journal_entries (
+              entry_date, description, debit_account_id, credit_account_id, 
+              amount, reference_type, reference_id, admin_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            effectivePaymentDate,
+            `${receipt.customer_name} 現金売上 (${receipt.receipt_number})`,
+            cashAccount.id,
+            revenueAccount.id,
+            receipt.total_amount,
+            'order_receipt',
+            receipt.id,
+            1
+          );
+          
+          const currentBalance = db.prepare(
+            'SELECT balance FROM cash_book ORDER BY transaction_date DESC, created_at DESC LIMIT 1'
+          ).get();
+          const newBalance = (currentBalance?.balance || 0) + receipt.total_amount;
+          
+          db.prepare(`
+            INSERT INTO cash_book (
+              transaction_date, transaction_type, category, description, 
+              amount, balance, reference_type, reference_id, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            effectivePaymentDate,
+            'income',
+            '売上',
+            `受注取引: ${receipt.receipt_number}`,
+            receipt.total_amount,
+            newBalance,
+            'order_receipt',
+            receipt.id,
+            1
+          );
+        } else {
+          db.prepare(`
+            INSERT INTO journal_entries (
+              entry_date, description, debit_account_id, credit_account_id, 
+              amount, reference_type, reference_id, admin_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            receipt.order_date,
+            `${receipt.customer_name} 売掛金計上 (${receipt.receipt_number})`,
+            receivableAccount.id,
+            revenueAccount.id,
+            receipt.total_amount,
+            'order_receipt',
+            receipt.id,
+            1
+          );
+        }
+        createdCount++;
+      }
+      console.log(`✅ 受注取引の仕訳修正完了: ${createdCount}件作成\n`);
+    }
+  } catch (error) {
+    console.error('❌ 受注取引の仕訳修正エラー:', error.message);
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
