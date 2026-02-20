@@ -17,6 +17,9 @@ export default function Dashboard() {
     totalSuppliers: 0,
     totalDocuments: 0,
     totalPurchaseOrders: 0,
+    totalInventory: 0,
+    lowStockItems: 0,
+    inventoryValue: 0,
     recentDocuments: [],
     recentPurchaseOrders: [],
     monthlyRevenue: 0,
@@ -50,11 +53,12 @@ export default function Dashboard() {
       const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
       const endDate = now.toISOString().split('T')[0];
 
-      const [customers, suppliers, documents, purchaseOrders, profitLoss] = await Promise.all([
+      const [customers, suppliers, documents, purchaseOrders, inventory, profitLoss] = await Promise.all([
         api.get('/customers').catch(err => ({ data: [] })),
         api.get('/suppliers').catch(err => ({ data: [] })),
         api.get('/documents').catch(err => ({ data: [] })),
         api.get('/purchases/orders').catch(err => ({ data: [] })),
+        api.get('/inventory').catch(err => ({ data: [] })),
         api.get('/accounting/profit-loss', {
           params: { start_date: startDate, end_date: endDate }
         }).catch(err => ({ data: { revenue: 0, expenses: 0 } }))
@@ -86,11 +90,23 @@ export default function Dashboard() {
       const monthlyRevenue = Math.max(docsRevenue, accountingRevenue);
       const monthlyExpenses = Math.max(posExpenses, accountingExpenses);
 
+      // 在庫データを集計
+      const inventoryData = inventory.data || [];
+      const lowStockItems = inventoryData.filter(item => 
+        item.current_stock <= item.reorder_point
+      ).length;
+      const inventoryValue = inventoryData.reduce((sum, item) => 
+        sum + (item.current_stock * item.unit_cost), 0
+      );
+
       setStats({
         totalCustomers: (customers.data || []).length,
         totalSuppliers: (suppliers.data || []).length,
         totalDocuments: (documents.data || []).length,
         totalPurchaseOrders: (purchaseOrders.data || []).length,
+        totalInventory: inventoryData.length,
+        lowStockItems,
+        inventoryValue,
         recentDocuments: (documents.data || []).slice(0, 5),
         recentPurchaseOrders: (purchaseOrders.data || []).slice(0, 5),
         monthlyRevenue,
@@ -254,6 +270,37 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ fontSize: '13px', color: '#9e9e9e' }}>作成済み発注</div>
+        </div>
+
+        <div style={{ background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e0e0e0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#757575', marginBottom: '8px' }}>在庫商品</div>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: '#212121' }}>{stats.totalInventory}</div>
+            </div>
+            <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '12px' }}>
+              <Package size={28} color="#616161" />
+            </div>
+          </div>
+          <div style={{ fontSize: '13px', color: stats.lowStockItems > 0 ? '#f44336' : '#9e9e9e', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            {stats.lowStockItems > 0 && <AlertCircle size={14} />}
+            {stats.lowStockItems > 0 ? `在庫不足 ${stats.lowStockItems}件` : '在庫管理中'}
+          </div>
+        </div>
+
+        <div style={{ background: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', border: '1px solid #e0e0e0' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+            <div>
+              <div style={{ fontSize: '14px', color: '#757575', marginBottom: '8px' }}>在庫評価額</div>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: '#212121' }}>
+                ¥{Math.round(stats.inventoryValue / 1000)}K
+              </div>
+            </div>
+            <div style={{ background: '#e8f5e9', padding: '12px', borderRadius: '12px' }}>
+              <Package size={28} color="#4caf50" />
+            </div>
+          </div>
+          <div style={{ fontSize: '13px', color: '#9e9e9e' }}>現在の在庫総額</div>
         </div>
       </div>
 
