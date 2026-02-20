@@ -49,7 +49,7 @@ export default function Layout({ children }) {
             fontSize: '20px', 
             fontWeight: '700',
             letterSpacing: '1px'
-          }}>SYSTEM CLOUD</h2>
+          }}>鉄板焼き居酒屋みぞまる</h2>
         </div>
 
         {/* Navigation */}
@@ -283,7 +283,7 @@ export default function Layout({ children }) {
           zIndex: 100
         }}>
           <div style={{ fontSize: '18px', fontWeight: '600', color: '#2563ab' }}>
-            麺家弍色
+            鉄板焼き居酒屋みぞまる
           </div>
           
           {/* User Menu */}
@@ -302,7 +302,7 @@ export default function Layout({ children }) {
               }}
             >
               <User size={20} color="#2563ab" />
-              <span style={{ fontSize: '14px', color: '#333' }}>麺家弍色</span>
+              <span style={{ fontSize: '14px', color: '#333' }}>鉄板焼き居酒屋みぞまる</span>
               {userMenuOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </div>
 
@@ -321,8 +321,8 @@ export default function Layout({ children }) {
                 zIndex: 1000
               }}>
                 <div style={{ padding: '15px', borderBottom: '1px solid #e8e8e8' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '5px' }}>麺家弍色</div>
-                  <div style={{ fontSize: '12px', color: '#666' }}>0hp2c84c787541j@ezweb.ne.jp</div>
+                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '5px' }}>鉄板焼き居酒屋みぞまる</div>
+                  <div style={{ fontSize: '12px', color: '#666' }}>mizomaru@example.com</div>
                 </div>
 
                 <div style={{ padding: '10px 0' }}>
