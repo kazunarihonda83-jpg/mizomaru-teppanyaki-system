@@ -8,10 +8,10 @@ export function initDatabase() {
   // Vercel環境では/tmpディレクトリを使用（ただし永続性なし）
   // 永続化ディスク対応: Render有料プランの場合は /data を使用
   const dbPath = process.env.VERCEL 
-    ? join(tmpdir(), 'menya-nishiki-order.db')
+    ? join(tmpdir(), 'mizomaru-order.db')
     : existsSync('/data')
-    ? '/data/menya-nishiki-order.db'
-    : join(process.cwd(), 'menya-nishiki-order.db');
+    ? '/data/mizomaru-order.db'
+    : join(process.cwd(), 'mizomaru-order.db');
   
   console.log('Initializing database at:', dbPath);
   
@@ -52,13 +52,13 @@ export function initDatabase() {
     console.log('Creating default admin user...');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
     db.prepare('INSERT INTO administrators (username, password, email, permissions) VALUES (?, ?, ?, ?)').run(
-      '麺家弍色',
+      '鉄板焼き居酒屋みぞまる',
       hashedPassword,
-      '0hp2c84c787541j@ezweb.ne.jp',
+      'mizomaru@example.com',
       'all'
     );
     console.log('✅ Default admin user created successfully');
-    console.log('   Username: 麺家弍色');
+    console.log('   Username: 鉄板焼き居酒屋みぞまる');
     console.log('   Password: admin123');
   } else {
     console.log(`Admin users found: ${adminCount.count}`);
@@ -66,9 +66,9 @@ export function initDatabase() {
     // 常にID=1のユーザーのパスワードを admin123 にリセット
     console.log('🔄 Resetting ID=1 user to default credentials...');
     const hashedPassword = bcrypt.hashSync('admin123', 10);
-    db.prepare('UPDATE administrators SET username = ?, password = ? WHERE id = 1').run('麺家弍色', hashedPassword);
+    db.prepare('UPDATE administrators SET username = ?, password = ? WHERE id = 1').run('鉄板焼き居酒屋みぞまる', hashedPassword);
     console.log('✅ ID=1 user reset complete');
-    console.log('   Username: 麺家弍色');
+    console.log('   Username: 鉄板焼き居酒屋みぞまる');
     console.log('   Password: admin123');
     
     // 重複ユーザーがいる場合は削除（ID=1以外）

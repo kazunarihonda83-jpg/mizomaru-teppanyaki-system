@@ -1,6 +1,6 @@
-# 麺家弍色 SYSTEM CLOUD
+# 鉄板焼き居酒屋みぞまる SYSTEM
 
-北海道河東郡音更町の飲食店「麺家弍色」向けの統合受発注管理システムです。
+神奈川県相模原市中央区の飲食店「鉄板焼き居酒屋みぞまる」向けの統合受発注管理システムです。
 
 ## 🌟 特徴
 
@@ -14,12 +14,12 @@
 
 ## 🚀 本番環境
 
-- **フロントエンド**: https://menya-nishiki-system-cloud.vercel.app （予定）
-- **バックエンド**: https://menya-nishiki-backend.onrender.com （予定）
+- **フロントエンド**: https://mizomaru-system.vercel.app
+- **バックエンド**: https://mizomaru-backend.onrender.com
 
 ## 🔐 ログイン情報
 
-- **ユーザー名**: 麺家弍色
+- **ユーザー名**: 鉄板焼き居酒屋みぞまる
 - **パスワード**: admin123
 
 ## 🛠️ 技術スタック
@@ -47,9 +47,8 @@
 
 1. **リポジトリをクローン**
 ```bash
-git clone https://github.com/kazunarihonda83-jpg/nakamaru-teppanyaki-system.git
-cd nakamaru-teppanyaki-system
-git checkout menya-nishiki-main
+git clone https://github.com/kazunarihonda83-jpg/mizomaru-teppanyaki-system.git
+cd mizomaru-teppanyaki-system
 ```
 
 2. **依存関係をインストール**
@@ -168,20 +167,19 @@ menya-nishiki-order-management-system/
 ## 📞 サポート
 
 ### 会社情報
-- **会社名**: 麺家弍色
-- **住所**: 〒080-0101 北海道河東郡音更町大通6-6
-- **電話番号**: 070-2184-0992
-- **メールアドレス**: 0hp2c84c787541j@ezweb.ne.jp
+- **会社名**: 鉄板焼き居酒屋みぞまる
+- **住所**: 〒252-0239 神奈川県相模原市中央区中央3-8-1 1階
+- **電話番号**: 042-851-3516
+- **メールアドレス**: mizomaru@example.com
 - **業種**: 飲食業
 
 ### 開発情報
-- **GitHubリポジトリ**: https://github.com/kazunarihonda83-jpg/nakamaru-teppanyaki-system
-- **ブランチ**: menya-nishiki-main
+- **GitHubリポジトリ**: https://github.com/kazunarihonda83-jpg/mizomaru-teppanyaki-system
 
 ## 📄 ライセンス
 
-このプロジェクトは麺家弍色専用のシステムです。
+このプロジェクトは鉄板焼き居酒屋みぞまる専用のシステムです。
 
 ---
 
-**Built with ❤️ for 麺家弍色**
+**Built with ❤️ for 鉄板焼き居酒屋みぞまる**
